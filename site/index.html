@@ -20,6 +20,7 @@
 		<nav class="site-nav">
 			<a href="#how">How it works</a>
 			<a href="#privacy">Privacy</a>
+			<a href="/manage.html">Manage</a>
 			<a href="https://winbit32.com" rel="noopener">Winbit32 wallet</a>
 		</nav>
 	</header>
@@ -58,7 +59,7 @@
 			<li style="border:0;padding:0.4rem 0;"><strong>Create a donation wallet</strong> in Winbit32 — we recommend a dedicated vault (2-of-2 with your phone) via the purse or vault wizard.</li>
 			<li style="border:0;padding:0.4rem 0;"><strong>Copy your UFVK + unified address</strong> from the Zcash receive wizard. Use a donation-only wallet: a view key reveals all incoming amounts and memos.</li>
 			<li style="border:0;padding:0.4rem 0;"><strong>Pick a page slug</strong> (e.g. <code>alice-marathon</code>), write your story, and fund a few days of scanning with a small ZEC payment.</li>
-			<li style="border:0;padding:0.4rem 0;"><strong>Share</strong> <code>ziving.org/p.html?slug=…</code> and add the OBS overlay for stream alerts.</li>
+			<li style="border:0;padding:0.4rem 0;"><strong>Share</strong> <code>ziving.org/p/your-slug</code> and add the OBS overlay for stream alerts. Manage later at <code>/manage.html</code>.</li>
 		</ol>
 
 		<h2 id="privacy" class="section-title">Privacy <span class="accent">posture</span></h2>
@@ -91,7 +92,7 @@
 				<div class="field">
 					<label for="slug">Page URL slug</label>
 					<input id="slug" name="slug" required pattern="[a-z0-9-]{3,48}" placeholder="alice-marathon" autocomplete="off" />
-					<p class="field__hint">ziving.org/p.html?slug=<strong id="slug-preview">your-slug</strong></p>
+					<p class="field__hint">ziving.org/p/<strong id="slug-preview">your-slug</strong></p>
 				</div>
 				<div class="field">
 					<label for="label">Title</label>

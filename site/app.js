@@ -12,6 +12,7 @@ const el = (tag, props = {}, ...kids) => {
 		if (k === 'class') node.className = v;
 		else if (k === 'text') node.textContent = v;
 		else if (k === 'html') node.innerHTML = v;
+		else if (k === 'style' && typeof v === 'string') node.setAttribute('style', v);
 		else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
 		else if (v != null) node.setAttribute(k, v);
 	}
@@ -24,6 +25,9 @@ const fmtZec = (n) => {
 	if (!Number.isFinite(v)) return '—';
 	return v < 0.01 ? `${v.toFixed(4)} ZEC` : `${v.toFixed(3)} ZEC`;
 };
+
+const pageUrl = (slug) => `${ZIVING_ORIGIN}/p/${encodeURIComponent(slug)}`;
+const overlayUrl = (slug) => `${ZIVING_ORIGIN}/overlay.html?slug=${encodeURIComponent(slug)}`;
 
 async function api(path, opts = {}) {
 	const res = await fetch(`${API_BASE}${path}`, {
@@ -51,9 +55,31 @@ function saveOwnerCredentials(slug, overlayId, ownerToken) {
 	} catch { /* private mode */ }
 }
 
+function loadOwnerCredentials(slug) {
+	try {
+		const raw = localStorage.getItem(`ziving:owner:${slug}`);
+		if (!raw) return null;
+		const o = JSON.parse(raw);
+		if (o && typeof o.ownerToken === 'string' && o.ownerToken) return o;
+	} catch { /* ignore */ }
+	return null;
+}
+
+function clearOwnerCredentials(slug) {
+	try { localStorage.removeItem(`ziving:owner:${slug}`); } catch { /* ignore */ }
+}
+
 async function renderQr(canvas, address) {
 	if (!globalThis.QRCode) return;
 	await QRCode.toCanvas(canvas, `zcash:${address}`, { width: 180, margin: 1, color: { dark: '#14121f' } });
+}
+
+function resolveCampaignSlug() {
+	const params = new URLSearchParams(location.search);
+	const fromQuery = normaliseSlug(params.get('slug'));
+	if (fromQuery && fromQuery.length >= 3) return fromQuery;
+	const m = location.pathname.match(/^\/p\/([a-z0-9-]{3,48})\/?$/u);
+	return m ? normaliseSlug(m[1]) : '';
 }
 
 // ── Home / create ───────────────────────────────────────────────────
@@ -99,14 +125,16 @@ function initHome() {
 			};
 			const out = await api('/v1/ziving/page', { method: 'POST', body: JSON.stringify(payload) });
 			saveOwnerCredentials(slug, out.overlayId, out.ownerToken);
-			const pageUrl = out.urls?.page || `${ZIVING_ORIGIN}/p.html?slug=${encodeURIComponent(slug)}`;
+			const url = out.urls?.page || pageUrl(slug);
 			if (result) {
 				result.hidden = false;
 				result.className = 'result-box';
 				result.innerHTML = `
-					<p><strong>Page created!</strong> <a href="${pageUrl}">${pageUrl}</a></p>
+					<p><strong>Page created!</strong> <a href="${url}">${url}</a></p>
 					<p class="field__hint">Owner token (save now — shown once):</p>
 					<p><code>${out.ownerToken}</code></p>
+					<p><a href="/manage.html?slug=${encodeURIComponent(slug)}">Open manage page</a>
+					· <a href="${overlayUrl(slug)}">Stream overlay</a></p>
 					<p><strong>Fund scanning</strong> — send ${out.payment?.amount?.display || 'ZEC'} to
 					<code>${out.payment?.payTo}</code> with memo <code>${out.payment?.memo}</code></p>
 					<p class="field__hint">${out.graceNote || ''}</p>
@@ -174,15 +202,11 @@ async function loadCampaign(slug) {
 			setTimeout(() => { $('copy-addr').textContent = 'Copy address'; }, 2000);
 		});
 
-		if (obsLink && page.urls?.obsPage) {
+		if (obsLink) {
 			obsLink.hidden = false;
-			obsLink.href = page.urls.obsPage;
-		} else if (obsLink && page.overlayId) {
-			obsLink.hidden = false;
-			obsLink.href = `${ZIVING_ORIGIN}/overlay.html?overlay=${encodeURIComponent(page.overlayId)}`;
+			obsLink.href = page.urls?.obsPage || overlayUrl(slug);
 		}
 
-		let sinceId = 0;
 		const renderDonations = (events) => {
 			const list = $('donation-list');
 			if (!list) return;
@@ -200,13 +224,8 @@ async function loadCampaign(slug) {
 
 		const pollEvents = async () => {
 			try {
-				const feed = await api(`/v1/ziving/page/${encodeURIComponent(slug)}/events?sinceId=${sinceId}`);
-				const confirmed = (feed.events || []).filter((e) => e.status === 'confirmed');
-				if (confirmed.length) sinceId = confirmed[confirmed.length - 1].id;
-				// Always show full list from 0 for simplicity on page load refresh
 				const full = await api(`/v1/ziving/page/${encodeURIComponent(slug)}/events?sinceId=0`);
 				renderDonations((full.events || []).filter((e) => e.status === 'confirmed'));
-				// Refresh totals
 				const fresh = await api(`/v1/ziving/page/${encodeURIComponent(slug)}`);
 				const raisedEl = root.querySelector('.progress__raised');
 				if (raisedEl) raisedEl.textContent = fmtZec(fresh.raised.zec);
@@ -223,15 +242,138 @@ async function loadCampaign(slug) {
 	}
 }
 
+// ── Manage page (owner token) ───────────────────────────────────────
+
+function initManage() {
+	const unlockForm = $('unlock-form');
+	const panel = $('manage-panel');
+	const errBox = $('unlock-error');
+	const slugField = $('m-slug');
+	const tokenField = $('m-token');
+
+	const preSlug = normaliseSlug(new URLSearchParams(location.search).get('slug'));
+	if (preSlug && slugField) {
+		slugField.value = preSlug;
+		const saved = loadOwnerCredentials(preSlug);
+		if (saved?.ownerToken && tokenField) tokenField.value = saved.ownerToken;
+	}
+
+	let session = { slug: '', overlayId: '', ownerToken: '' };
+
+	async function refreshStatus() {
+		const page = await api(`/v1/ziving/page/${encodeURIComponent(session.slug)}`);
+		session.overlayId = page.overlayId;
+		const card = $('status-card');
+		const pill = page.active ? 'status-pill status-pill--active' : 'status-pill status-pill--paused';
+		card.replaceChildren(
+			el('div', { style: 'display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap;' },
+				el('h3', { style: 'margin:0;', text: page.label || session.slug }),
+				el('span', { class: pill, text: page.state || (page.active ? 'active' : 'paused') })),
+			el('p', { style: 'color:var(--muted);margin:0.75rem 0 0;font-size:0.9rem;' },
+				el('a', { href: pageUrl(session.slug), text: pageUrl(session.slug) })),
+			el('p', { style: 'color:var(--muted);margin:0.5rem 0 0;font-size:0.9rem;',
+				text: `Credit: $${page.credit?.remaining_usd ?? '?'} · ~${page.credit?.days_remaining ?? '?'} days · raised ${fmtZec(page.raised?.zec)}` }),
+			el('p', { style: 'color:var(--muted);margin:0.35rem 0 0;font-size:0.82rem;',
+				text: `Expires ${page.expires_at ? new Date(page.expires_at).toLocaleString() : '—'}` })
+		);
+		$('obs-url').textContent = overlayUrl(session.slug);
+		return page;
+	}
+
+	unlockForm?.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		errBox.hidden = true;
+		const slug = normaliseSlug(slugField.value);
+		const ownerToken = String(tokenField.value || '').trim();
+		if (!slug || !ownerToken) return;
+		try {
+			const page = await api(`/v1/ziving/page/${encodeURIComponent(slug)}`);
+			await api(`/v1/overlay/${encodeURIComponent(page.overlayId)}/owner`, {
+				headers: { 'x-overlay-token': ownerToken }
+			});
+			session = { slug, overlayId: page.overlayId, ownerToken };
+			if ($('m-remember')?.checked) saveOwnerCredentials(slug, page.overlayId, ownerToken);
+			else clearOwnerCredentials(slug);
+			unlockForm.hidden = true;
+			panel.hidden = false;
+			await refreshStatus();
+			history.replaceState(null, '', `/manage.html?slug=${encodeURIComponent(slug)}`);
+		} catch (err) {
+			errBox.hidden = false;
+			errBox.textContent = err.message;
+		}
+	});
+
+	$('copy-obs')?.addEventListener('click', async () => {
+		await navigator.clipboard.writeText($('obs-url').textContent);
+		$('copy-obs').textContent = 'Copied!';
+		setTimeout(() => { $('copy-obs').textContent = 'Copy overlay URL'; }, 2000);
+	});
+
+	$('topup-form')?.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		const box = $('topup-result');
+		const btn = $('topup-submit');
+		box.hidden = true;
+		btn.disabled = true;
+		try {
+			const cents = Math.round(Number($('topup-usd').value) * 100);
+			const quote = await api(`/v1/overlay/${encodeURIComponent(session.overlayId)}/topup`, {
+				method: 'POST',
+				headers: { 'x-overlay-token': session.ownerToken },
+				body: JSON.stringify({ amountUsdCents: cents })
+			});
+			box.hidden = false;
+			box.className = 'result-box';
+			box.innerHTML = `
+				<p><strong>Send ${quote.amount?.display || 'ZEC'}</strong> to <code>${quote.payTo}</code></p>
+				<p>Memo: <code>${quote.memo}</code></p>
+				<p class="field__hint">Quote expires ${quote.expiresAt ? new Date(quote.expiresAt).toLocaleString() : 'soon'}.
+				Credit (${quote.credit?.usd || ''}) lands after ${quote.confirmations?.required ?? 8} confirmations.</p>
+			`;
+		} catch (err) {
+			box.hidden = false;
+			box.className = 'result-box result-box--warn';
+			box.textContent = err.message;
+		} finally {
+			btn.disabled = false;
+		}
+	});
+
+	$('cancel-btn')?.addEventListener('click', async () => {
+		if (!globalThis.confirm(`Cancel campaign "${session.slug}"? This stops scanning and cannot be undone.`)) return;
+		const box = $('cancel-result');
+		box.hidden = true;
+		try {
+			await api(`/v1/overlay/${encodeURIComponent(session.overlayId)}`, {
+				method: 'DELETE',
+				headers: { 'x-overlay-token': session.ownerToken }
+			});
+			clearOwnerCredentials(session.slug);
+			box.hidden = false;
+			box.className = 'result-box result-box--warn';
+			box.textContent = 'Campaign cancelled. Scanning has stopped.';
+			$('cancel-btn').disabled = true;
+			$('topup-submit').disabled = true;
+			await refreshStatus().catch(() => {});
+		} catch (err) {
+			box.hidden = false;
+			box.className = 'result-box result-box--warn';
+			box.textContent = err.message;
+		}
+	});
+}
+
 // ── Boot ────────────────────────────────────────────────────────────
 
 const page = document.body.dataset.page;
 if (page === 'home') initHome();
 if (page === 'campaign') {
-	const slug = normaliseSlug(new URLSearchParams(location.search).get('slug'));
+	const slug = resolveCampaignSlug();
 	if (!slug || slug.length < 3) {
-		$('campaign-root').textContent = 'Missing ?slug= on the URL';
+		$('campaign-root').textContent = 'Missing campaign slug — use /p/your-slug';
 	} else {
 		loadCampaign(slug);
 	}
 }
+if (page === 'manage') initManage();

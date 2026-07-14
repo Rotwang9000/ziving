@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Manage page — Ziving</title>
+	<meta name="description" content="Top up scanning credit or cancel your Ziving campaign. Owner token required." />
+	<meta name="theme-color" content="#0c0b12" />
+	<meta name="robots" content="noindex" />
+	<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+	<link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="manage">
+	<header class="site-header">
+		<a class="brand" href="/">
+			<span class="brand__z">z</span>iving<span class="brand__tag">.org</span>
+		</a>
+		<nav class="site-nav">
+			<a href="/">Home</a>
+			<a href="/#how">How it works</a>
+		</nav>
+	</header>
+
+	<main>
+		<h1 class="section-title">Manage your <span class="accent">page</span></h1>
+		<p class="hero__lead" style="margin:0 0 1.5rem;text-align:left;max-width:40rem;">
+			Use the owner token shown once at creation. It never leaves your browser except as the
+			<code>x-overlay-token</code> header to the gateway.
+		</p>
+
+		<form id="unlock-form" class="card" style="max-width:32rem;">
+			<div class="field">
+				<label for="m-slug">Page slug</label>
+				<input id="m-slug" name="slug" required pattern="[a-z0-9-]{3,48}" placeholder="alice-marathon" autocomplete="off" />
+			</div>
+			<div class="field">
+				<label for="m-token">Owner token</label>
+				<input id="m-token" name="token" required autocomplete="off" spellcheck="false" placeholder="paste token…" />
+				<p class="field__hint">Stored only in this browser's localStorage if you tick the box below.</p>
+			</div>
+			<label class="field" style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+				<input type="checkbox" id="m-remember" checked />
+				<span style="color:var(--muted);font-size:0.88rem;">Remember on this device</span>
+			</label>
+			<div class="form-actions" style="justify-content:flex-start;">
+				<button type="submit" class="btn btn--primary">Unlock</button>
+			</div>
+			<div id="unlock-error" class="result-box result-box--warn" hidden></div>
+		</form>
+
+		<section id="manage-panel" hidden style="margin-top:1.5rem;max-width:40rem;">
+			<div class="card" id="status-card"></div>
+
+			<div class="card" style="margin-top:1rem;">
+				<h3>Top up scanning</h3>
+				<p style="color:var(--muted);font-size:0.9rem;margin:0 0 1rem;">
+					Pay ZEC to the gateway (memo quote). Credit lands after confirmations.
+				</p>
+				<form id="topup-form">
+					<div class="field">
+						<label for="topup-usd">Amount (USD)</label>
+						<select id="topup-usd">
+							<option value="2">$2 (~100 days)</option>
+							<option value="5" selected>$5 (~250 days)</option>
+							<option value="10">$10 (~500 days)</option>
+						</select>
+					</div>
+					<div class="form-actions" style="justify-content:flex-start;">
+						<button type="submit" class="btn btn--primary" id="topup-submit">Get ZEC quote</button>
+					</div>
+				</form>
+				<div id="topup-result" hidden></div>
+			</div>
+
+			<div class="card" style="margin-top:1rem;">
+				<h3>Stream overlay</h3>
+				<p style="color:var(--muted);font-size:0.9rem;margin:0 0 0.75rem;">
+					Add this URL as an OBS browser source (transparent background).
+				</p>
+				<p><code id="obs-url" style="font-size:0.8rem;word-break:break-all;"></code></p>
+				<button type="button" class="btn btn--ghost btn--sm" id="copy-obs">Copy overlay URL</button>
+			</div>
+
+			<div class="card" style="margin-top:1rem;border-color:rgba(255,107,122,0.35);">
+				<h3 style="color:var(--danger);">Cancel page</h3>
+				<p style="color:var(--muted);font-size:0.9rem;margin:0 0 1rem;">
+					Stops scanning. Public page stays briefly then is pruned. This cannot be undone.
+				</p>
+				<button type="button" class="btn btn--ghost" id="cancel-btn" style="border-color:var(--danger);color:var(--danger);">Cancel campaign</button>
+				<div id="cancel-result" hidden></div>
+			</div>
+		</section>
+	</main>
+
+	<footer class="site-footer">
+		<a href="/">ziving.org</a> · owner tools · no accounts
+	</footer>
+
+	<script src="app.js" type="module"></script>
+</body>
+</html>
