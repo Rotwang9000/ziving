@@ -63,7 +63,12 @@ pipeline {
 		}
 
 		stage('Deploy → Production') {
-			when { branch 'main' }
+			when {
+				anyOf {
+					branch 'main'
+					expression { return env.JOB_NAME == 'ziving-main' }
+				}
+			}
 			steps {
 				sh '''
 					set -e
@@ -78,7 +83,12 @@ pipeline {
 		}
 
 		stage('Smoke Test → Production') {
-			when { branch 'main' }
+			when {
+				anyOf {
+					branch 'main'
+					expression { return env.JOB_NAME == 'ziving-main' }
+				}
+			}
 			steps {
 				sh '''
 					set -e
