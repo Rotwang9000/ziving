@@ -69,9 +69,99 @@ function clearOwnerCredentials(slug) {
 	try { localStorage.removeItem(`ziving:owner:${slug}`); } catch { /* ignore */ }
 }
 
-async function renderQr(canvas, address) {
-	if (!globalThis.QRCode) return;
-	await QRCode.toCanvas(canvas, `zcash:${address}`, { width: 180, margin: 1, color: { dark: '#1a2420' } });
+async function renderQr(canvas, payload, { width = 180 } = {}) {
+	if (!globalThis.QRCode || !canvas) return;
+	await QRCode.toCanvas(canvas, payload, { width, margin: 1, color: { dark: '#1a2420', light: '#ffffff' } });
+}
+
+async function copyText(text, btn) {
+	try {
+		await navigator.clipboard.writeText(text);
+		if (!btn) return;
+		if (btn.classList.contains('btn-icon')) {
+			btn.classList.add('is-copied');
+			btn.title = 'Copied!';
+			setTimeout(() => {
+				btn.classList.remove('is-copied');
+				btn.title = btn.getAttribute('aria-label') || 'Copy';
+			}, 1800);
+			return;
+		}
+		const label = btn.textContent;
+		btn.textContent = 'Copied!';
+		setTimeout(() => { btn.textContent = label; }, 1800);
+	} catch { /* clipboard blocked */ }
+}
+
+function zcashPayUri({ payTo, amountDisplay, memo }) {
+	const parts = [`zcash:${payTo}`];
+	const q = [];
+	if (amountDisplay) q.push(`amount=${encodeURIComponent(amountDisplay)}`);
+	if (memo) q.push(`memo=${encodeURIComponent(memo)}`);
+	return q.length ? `${parts[0]}?${q.join('&')}` : parts[0];
+}
+
+/**
+ * Render a tidy ZEC memo-quote payment card into `root`.
+ * payment: { payTo, memo, amount: { display }, credit?, expiresAt?, confirmations? }
+ */
+function renderPaymentCard(root, payment, {
+	title = 'Fund scanning',
+	graceNote = '',
+	extraLinks = null
+} = {}) {
+	if (!root) return;
+	const payTo = payment?.payTo || '';
+	const memo = payment?.memo || '';
+	const amount = payment?.amount?.display || '';
+	const credit = payment?.credit?.usd || '';
+	const uri = zcashPayUri({ payTo, amountDisplay: amount, memo });
+
+	const qrCanvas = el('canvas', { class: 'pay-card__qr', width: '200', height: '200' });
+	const copyAddrBtn = el('button', {
+		type: 'button', class: 'btn-icon', title: 'Copy address', 'aria-label': 'Copy address',
+		html: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
+	});
+	const copyMemoBtn = el('button', {
+		type: 'button', class: 'btn-icon', title: 'Copy memo', 'aria-label': 'Copy memo',
+		html: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
+	});
+	const copyAmtBtn = el('button', {
+		type: 'button', class: 'btn btn--ghost btn--sm', text: 'Copy amount'
+	});
+
+	copyAddrBtn.addEventListener('click', () => copyText(payTo, copyAddrBtn));
+	copyMemoBtn.addEventListener('click', () => copyText(memo, copyMemoBtn));
+	copyAmtBtn.addEventListener('click', () => copyText(amount, copyAmtBtn));
+
+	root.hidden = false;
+	root.className = 'pay-card';
+	root.replaceChildren(
+		el('h3', { class: 'pay-card__title', text: title }),
+		el('p', { class: 'pay-card__amount' },
+			el('span', { class: 'pay-card__amount-val', text: amount ? `${amount} ZEC` : 'ZEC' }),
+			credit ? el('span', { class: 'pay-card__credit', text: `→ ${credit} scanning credit` }) : null,
+			copyAmtBtn),
+		el('div', { class: 'pay-card__body' },
+			el('div', { class: 'pay-card__qr-wrap' }, qrCanvas),
+			el('div', { class: 'pay-card__fields' },
+				el('div', { class: 'pay-row' },
+					el('span', { class: 'pay-row__label', text: 'Pay to' }),
+					el('div', { class: 'pay-row__value' },
+						el('code', { class: 'pay-row__code', text: payTo }),
+						copyAddrBtn)),
+				el('div', { class: 'pay-row' },
+					el('span', { class: 'pay-row__label', text: 'Memo' }),
+					el('div', { class: 'pay-row__value' },
+						el('code', { class: 'pay-row__code pay-row__code--memo', text: memo }),
+						copyMemoBtn)),
+				payment?.expiresAt
+					? el('p', { class: 'field__hint', text: `Quote expires ${new Date(payment.expiresAt).toLocaleString()}. Credit after ${payment?.confirmations?.required ?? 8} confirmations.` })
+					: null)),
+		graceNote ? el('p', { class: 'pay-card__note', text: graceNote }) : null,
+		extraLinks
+	);
+	renderQr(qrCanvas, uri, { width: 200 }).catch(() => {});
 }
 
 function resolveCampaignSlug() {
@@ -153,6 +243,7 @@ function initHome() {
 	let step = 1;
 	let maxReached = 1;
 	let walletMode = 'create';
+	let pageCreated = false;
 
 	loadFeatured();
 
@@ -170,6 +261,13 @@ function initHome() {
 	function updateCreateButton() {
 		const submit = $('create-submit');
 		if (!submit) return;
+		if (pageCreated) {
+			submit.hidden = true;
+			submit.disabled = true;
+			$('wizard-next').hidden = true;
+			$('wizard-back').hidden = true;
+			return;
+		}
 		const onLast = step >= WIZARD_STEPS;
 		const ready = onLast && walletCredentialsReady() && validateStep(1, { silent: true });
 		submit.hidden = !ready;
@@ -254,6 +352,7 @@ function initHome() {
 	}
 
 	function resetWizard() {
+		pageCreated = false;
 		maxReached = 1;
 		setWalletCredentials('', '');
 		if ($('wallet-created')) $('wallet-created').hidden = true;
@@ -407,6 +506,7 @@ function initHome() {
 
 	form?.addEventListener('submit', async (e) => {
 		e.preventDefault();
+		if (pageCreated) return;
 		if (step !== WIZARD_STEPS) {
 			if (validateStep(step)) setStep(step + 1);
 			return;
@@ -417,7 +517,7 @@ function initHome() {
 		}
 		const result = $('create-result');
 		const submit = $('create-submit');
-		if (result) { result.hidden = true; result.innerHTML = ''; }
+		if (result) { result.hidden = true; result.replaceChildren(); }
 		submit.disabled = true;
 		try {
 			const slug = normaliseSlug(slugInput.value);
@@ -434,34 +534,59 @@ function initHome() {
 			};
 			const out = await api('/v1/ziving/page', { method: 'POST', body: JSON.stringify(payload) });
 			saveOwnerCredentials(slug, out.overlayId, out.ownerToken);
+			pageCreated = true;
 			const url = out.urls?.page || pageUrl(slug);
 			$('create-review').hidden = true;
 			if (result) {
 				result.hidden = false;
-				result.className = 'result-box';
-				result.innerHTML = `
-					<p><strong>Page created!</strong> <a href="${url}">${url}</a></p>
-					<p class="field__hint">Owner token (save now — shown once):</p>
-					<p><code>${out.ownerToken}</code></p>
-					<p><a href="/manage.html?slug=${encodeURIComponent(slug)}">Open manage page</a>
-					· <a href="${overlayUrl(slug)}">Stream overlay</a></p>
-					<p><strong>Fund scanning</strong> — send ${out.payment?.amount?.display || 'ZEC'} to
-					<code>${out.payment?.payTo}</code> with memo <code>${out.payment?.memo}</code></p>
-					<p class="field__hint">${out.graceNote || ''}</p>
-				`;
+				result.className = 'create-success';
+				const tokenBox = el('details', { class: 'create-success__token' },
+					el('summary', { text: 'Owner token (saved in this browser — expand to copy)' }),
+					el('p', { class: 'field__hint', text: 'Needed only if you clear site data. You can also unlock Manage with the same wallet UFVK.' }),
+					el('code', { text: out.ownerToken || '' }));
+				const actions = el('div', { class: 'create-success__actions' },
+					el('a', { class: 'btn btn--primary', href: url, text: 'View page' }),
+					el('a', { class: 'btn btn--ghost', href: `/manage.html?slug=${encodeURIComponent(slug)}`, text: 'Manage' }),
+					el('a', { class: 'btn btn--ghost', href: overlayUrl(slug), text: 'Stream overlay' }));
+				const payHost = el('div');
+				result.replaceChildren(
+					el('p', { class: 'create-success__lede' },
+						el('strong', { text: 'Page is live' }),
+						document.createTextNode(' on grace credit — share it while you fund scanning.')),
+					actions,
+					tokenBox,
+					payHost);
+				renderPaymentCard(payHost, out.payment, {
+					title: 'Fund scanning',
+					graceNote: out.graceNote || ''
+				});
 			}
-			$('create-submit').hidden = true;
-			$('wizard-back').hidden = true;
+			updateCreateButton();
 		} catch (err) {
+			const slug = normaliseSlug(slugInput.value);
+			const saved = loadOwnerCredentials(slug);
+			const taken = /already in use/i.test(err.message || '');
 			if (result) {
 				result.hidden = false;
 				result.className = 'result-box result-box--warn';
-				result.textContent = err.message;
+				if (taken) {
+					result.replaceChildren(
+						el('p', { text: `Page "${slug}" already exists — no need to create it again.` }),
+						el('div', { class: 'create-success__actions', style: 'margin-top:0.75rem;' },
+							el('a', { class: 'btn btn--primary', href: pageUrl(slug), text: 'View page' }),
+							el('a', { class: 'btn btn--ghost', href: `/manage.html?slug=${encodeURIComponent(slug)}`, text: 'Manage' })),
+						saved
+							? el('p', { class: 'field__hint', text: 'Owner credentials are still in this browser. Manage unlocks with the saved token or your wallet.' })
+							: el('p', { class: 'field__hint', text: 'Unlock Manage with the wallet UFVK you used when creating the page.' })
+					);
+				} else {
+					result.textContent = err.message;
+				}
 			}
 			updateCreateButton();
 		} finally {
-			submit.disabled = false;
-			updateCreateButton();
+			submit.disabled = pageCreated ? true : false;
+			if (!pageCreated) updateCreateButton();
 		}
 	});
 
@@ -513,11 +638,9 @@ async function loadCampaign(slug) {
 			donationsBox);
 
 		const canvas = $('donate-qr');
-		if (canvas) await renderQr(canvas, page.address);
+		if (canvas) await renderQr(canvas, `zcash:${page.address}`);
 		$('copy-addr')?.addEventListener('click', async () => {
-			await navigator.clipboard.writeText(page.address);
-			$('copy-addr').textContent = 'Copied!';
-			setTimeout(() => { $('copy-addr').textContent = 'Copy address'; }, 2000);
+			await copyText(page.address, $('copy-addr'));
 		});
 
 		if (obsLink) {
@@ -560,7 +683,7 @@ async function loadCampaign(slug) {
 	}
 }
 
-// ── Manage page (owner token) ───────────────────────────────────────
+// ── Manage page (wallet UFVK or owner token) ────────────────────────
 
 function initManage() {
 	const unlockForm = $('unlock-form');
@@ -577,6 +700,32 @@ function initManage() {
 	}
 
 	let session = { slug: '', overlayId: '', ownerToken: '' };
+	let unlockMode = 'wallet';
+
+	function setUnlockMode(mode) {
+		unlockMode = mode;
+		for (const btn of document.querySelectorAll('.unlock-mode')) {
+			btn.classList.toggle('is-active', btn.dataset.unlockMode === mode);
+		}
+		if ($('unlock-panel-wallet')) $('unlock-panel-wallet').hidden = mode !== 'wallet';
+		if ($('unlock-panel-token')) $('unlock-panel-token').hidden = mode !== 'token';
+		if (tokenField) tokenField.required = mode === 'token';
+	}
+
+	for (const btn of document.querySelectorAll('.unlock-mode')) {
+		btn.addEventListener('click', () => setUnlockMode(btn.dataset.unlockMode));
+	}
+	setUnlockMode(tokenField?.value ? 'token' : 'wallet');
+
+	async function enterSession(slug, overlayId, ownerToken) {
+		session = { slug, overlayId, ownerToken };
+		if ($('m-remember')?.checked) saveOwnerCredentials(slug, overlayId, ownerToken);
+		else clearOwnerCredentials(slug);
+		unlockForm.hidden = true;
+		panel.hidden = false;
+		await refreshStatus();
+		history.replaceState(null, '', `/manage.html?slug=${encodeURIComponent(slug)}`);
+	}
 
 	async function refreshStatus() {
 		const page = await api(`/v1/ziving/page/${encodeURIComponent(session.slug)}`);
@@ -602,34 +751,95 @@ function initManage() {
 		return page;
 	}
 
+	async function unlockWithUfvk(slug, ufvk) {
+		const recovered = await api(`/v1/ziving/page/${encodeURIComponent(slug)}/recover`, {
+			method: 'POST',
+			body: JSON.stringify({ ufvk })
+		});
+		await enterSession(slug, recovered.overlayId, recovered.ownerToken);
+	}
+
+	async function unlockWithToken(slug, ownerToken) {
+		const page = await api(`/v1/ziving/page/${encodeURIComponent(slug)}`);
+		await api(`/v1/overlay/${encodeURIComponent(page.overlayId)}/owner`, {
+			headers: { 'x-overlay-token': ownerToken }
+		});
+		await enterSession(slug, page.overlayId, ownerToken);
+	}
+
+	// Auto-unlock when this browser already has a saved token for the slug.
+	(async () => {
+		if (!preSlug) return;
+		const saved = loadOwnerCredentials(preSlug);
+		if (!saved?.ownerToken) return;
+		try {
+			await unlockWithToken(preSlug, saved.ownerToken);
+		} catch { /* stay on unlock form */ }
+	})();
+
+	$('m-wallet-open')?.addEventListener('click', async () => {
+		errBox.hidden = true;
+		const btn = $('m-wallet-open');
+		btn.disabled = true;
+		btn.textContent = 'Opening…';
+		try {
+			const kit = await loadWalletKit();
+			const phrase = ($('m-wallet-phrase')?.value || '').trim();
+			const file = $('m-wallet-file')?.files?.[0];
+			const password = ($('m-wallet-password')?.value || '').trim() || undefined;
+			let opened;
+			if (file) opened = await kit.openFromFile(file, password);
+			else if (phrase.startsWith('uview')) opened = await kit.openFromUfvk(phrase);
+			else if (phrase) opened = await kit.openFromPhrase(phrase);
+			else throw new Error('Paste a recovery phrase or UFVK, or choose a wallet file');
+			if ($('m-ufvk')) $('m-ufvk').value = opened.ufvk || '';
+			$('m-wallet-status').hidden = false;
+			$('m-wallet-status').textContent = `Wallet ready · ${opened.address?.slice(0, 18) || 'u…'}…`;
+		} catch (err) {
+			errBox.hidden = false;
+			errBox.textContent = err.message || String(err);
+		} finally {
+			btn.disabled = false;
+			btn.textContent = 'Open wallet';
+		}
+	});
+
+	$('m-wallet-file')?.addEventListener('change', () => {
+		const name = $('m-wallet-file')?.files?.[0]?.name || '';
+		if (/(\.wult|\.png)$/i.test(name) && $('m-wallet-password-wrap')) {
+			$('m-wallet-password-wrap').hidden = false;
+		}
+	});
+
 	unlockForm?.addEventListener('submit', async (e) => {
 		e.preventDefault();
 		errBox.hidden = true;
 		const slug = normaliseSlug(slugField.value);
-		const ownerToken = String(tokenField.value || '').trim();
-		if (!slug || !ownerToken) return;
+		if (!slug) return;
+		const btn = $('unlock-submit');
+		btn.disabled = true;
 		try {
-			const page = await api(`/v1/ziving/page/${encodeURIComponent(slug)}`);
-			await api(`/v1/overlay/${encodeURIComponent(page.overlayId)}/owner`, {
-				headers: { 'x-overlay-token': ownerToken }
-			});
-			session = { slug, overlayId: page.overlayId, ownerToken };
-			if ($('m-remember')?.checked) saveOwnerCredentials(slug, page.overlayId, ownerToken);
-			else clearOwnerCredentials(slug);
-			unlockForm.hidden = true;
-			panel.hidden = false;
-			await refreshStatus();
-			history.replaceState(null, '', `/manage.html?slug=${encodeURIComponent(slug)}`);
+			if (unlockMode === 'token') {
+				const ownerToken = String(tokenField.value || '').trim();
+				if (!ownerToken) throw new Error('Paste the owner token, or switch to Wallet unlock');
+				await unlockWithToken(slug, ownerToken);
+			} else {
+				let ufvk = ($('m-ufvk')?.value || '').trim();
+				if (!ufvk.startsWith('uview')) {
+					throw new Error('Open your campaign wallet (or paste its UFVK) first');
+				}
+				await unlockWithUfvk(slug, ufvk);
+			}
 		} catch (err) {
 			errBox.hidden = false;
 			errBox.textContent = err.message;
+		} finally {
+			btn.disabled = false;
 		}
 	});
 
 	$('copy-obs')?.addEventListener('click', async () => {
-		await navigator.clipboard.writeText($('obs-url').textContent);
-		$('copy-obs').textContent = 'Copied!';
-		setTimeout(() => { $('copy-obs').textContent = 'Copy overlay URL'; }, 2000);
+		await copyText($('obs-url').textContent, $('copy-obs'));
 	});
 
 	$('topup-form')?.addEventListener('submit', async (e) => {
@@ -645,14 +855,10 @@ function initManage() {
 				headers: { 'x-overlay-token': session.ownerToken },
 				body: JSON.stringify({ amountUsdCents: cents })
 			});
-			box.hidden = false;
-			box.className = 'result-box';
-			box.innerHTML = `
-				<p><strong>Send ${quote.amount?.display || 'ZEC'}</strong> to <code>${quote.payTo}</code></p>
-				<p>Memo: <code>${quote.memo}</code></p>
-				<p class="field__hint">Quote expires ${quote.expiresAt ? new Date(quote.expiresAt).toLocaleString() : 'soon'}.
-				Credit (${quote.credit?.usd || ''}) lands after ${quote.confirmations?.required ?? 8} confirmations.</p>
-			`;
+			renderPaymentCard(box, quote, {
+				title: 'Top-up quote',
+				graceNote: `Credit (${quote.credit?.usd || ''}) lands after ${quote.confirmations?.required ?? 8} confirmations.`
+			});
 		} catch (err) {
 			box.hidden = false;
 			box.className = 'result-box result-box--warn';
@@ -675,14 +881,10 @@ function initManage() {
 				headers: { 'x-overlay-token': session.ownerToken },
 				body: JSON.stringify({ days })
 			});
-			box.hidden = false;
-			box.className = 'result-box';
-			box.innerHTML = `
-				<p><strong>Homepage feature — ${days} day${days === 1 ? '' : 's'}</strong></p>
-				<p>Send ${quote.payment?.amount?.display || 'ZEC'} to <code>${quote.payment?.payTo}</code></p>
-				<p>Memo: <code>${quote.payment?.memo}</code></p>
-				<p class="field__hint">${quote.note || ''}</p>
-			`;
+			renderPaymentCard(box, quote.payment, {
+				title: `Homepage feature — ${days} day${days === 1 ? '' : 's'}`,
+				graceNote: quote.note || ''
+			});
 		} catch (err) {
 			box.hidden = false;
 			box.className = 'result-box result-box--warn';

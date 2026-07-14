@@ -4,14 +4,14 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<title>Manage page — Ziving</title>
-	<meta name="description" content="Top up scanning, buy homepage promotion, or cancel your Ziving campaign. Owner token required." />
+	<meta name="description" content="Top up scanning, buy homepage promotion, or cancel your Ziving campaign. Unlock with your wallet or owner token." />
 	<meta name="theme-color" content="#1a2420" />
 	<meta name="robots" content="noindex" />
 	<link rel="icon" href="favicon.svg" type="image/svg+xml" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="styles.css?v=20260714c" />
+	<link rel="stylesheet" href="styles.css?v=20260714d" />
 </head>
 <body data-page="manage">
 	<div class="atmos" aria-hidden="true"></div>
@@ -28,26 +28,57 @@
 	<main>
 		<h1 class="section-title">Manage your <span class="accent">page</span></h1>
 		<p class="hero__lead" style="margin:0 0 1.5rem;max-width:40rem;">
-			Use the owner token shown once at creation. It never leaves your browser except as the
-			<code>x-overlay-token</code> header to the gateway.
+			Unlock with the same donation wallet you used to create the page — or paste the owner token if you still have it.
 		</p>
 
-		<form id="unlock-form" class="card" style="max-width:32rem;">
+		<form id="unlock-form" class="card" style="max-width:36rem;">
 			<div class="field">
 				<label for="m-slug">Page slug</label>
 				<input id="m-slug" name="slug" required pattern="[a-z0-9-]{3,48}" placeholder="alice-marathon" autocomplete="off" />
 			</div>
-			<div class="field">
-				<label for="m-token">Owner token</label>
-				<input id="m-token" name="token" required autocomplete="off" spellcheck="false" placeholder="paste token…" />
-				<p class="field__hint">Stored only in this browser's localStorage if you tick the box below.</p>
+
+			<div class="wallet-modes unlock-modes" role="tablist" aria-label="Unlock method">
+				<button type="button" class="wallet-mode unlock-mode is-active" data-unlock-mode="wallet">Wallet</button>
+				<button type="button" class="wallet-mode unlock-mode" data-unlock-mode="token">Owner token</button>
 			</div>
+
+			<div id="unlock-panel-wallet">
+				<p class="field__hint" style="margin-bottom:0.85rem;">
+					Open the campaign wallet (phrase, UFVK, <code>.wult</code> / locket) — we match the stored view key and issue a fresh manage token.
+				</p>
+				<div class="field">
+					<label for="m-wallet-phrase">Recovery phrase or UFVK</label>
+					<textarea id="m-wallet-phrase" rows="3" spellcheck="false" placeholder="twenty four words… or uview1…"></textarea>
+				</div>
+				<div class="field">
+					<label for="m-wallet-file">Or wallet file</label>
+					<input id="m-wallet-file" type="file" accept=".txt,.wult,.png,image/png,text/plain" />
+				</div>
+				<div class="field" id="m-wallet-password-wrap" hidden>
+					<label for="m-wallet-password">Password (if encrypted)</label>
+					<input id="m-wallet-password" type="password" autocomplete="off" />
+				</div>
+				<div class="form-actions" style="justify-content:flex-start;margin-bottom:0.75rem;">
+					<button type="button" class="btn btn--ghost btn--sm" id="m-wallet-open">Open wallet</button>
+				</div>
+				<p id="m-wallet-status" class="field__hint" hidden></p>
+				<input type="hidden" id="m-ufvk" value="" />
+			</div>
+
+			<div id="unlock-panel-token" hidden>
+				<div class="field">
+					<label for="m-token">Owner token</label>
+					<input id="m-token" name="token" autocomplete="off" spellcheck="false" placeholder="paste token…" />
+					<p class="field__hint">Shown once at create (and when recovering). Prefer wallet unlock if you lost it.</p>
+				</div>
+			</div>
+
 			<label class="field" style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
 				<input type="checkbox" id="m-remember" checked />
 				<span style="color:var(--muted);font-size:0.88rem;">Remember on this device</span>
 			</label>
 			<div class="form-actions" style="justify-content:flex-start;">
-				<button type="submit" class="btn btn--primary">Unlock</button>
+				<button type="submit" class="btn btn--primary" id="unlock-submit">Unlock</button>
 			</div>
 			<div id="unlock-error" class="result-box result-box--warn" hidden></div>
 		</form>
@@ -122,6 +153,7 @@
 		<a href="/">ziving.org</a> · owner tools · no accounts
 	</footer>
 
-	<script src="app.js?v=20260714c" type="module"></script>
+	<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+	<script src="app.js?v=20260714d" type="module"></script>
 </body>
 </html>

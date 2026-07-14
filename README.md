@@ -28,7 +28,7 @@ ziving/
   site/                 # Static site (no build) — deploy to ziving.org
     index.html          # Landing + multi-step create wizard + featured
     p.html              # Public campaign page (also /p/<slug>)
-    manage.html         # Top-up / feature / cancel (token-gated)
+    manage.html         # Top-up / feature / cancel (wallet or token unlock)
     overlay.html        # OBS browser source
   ops/nginx/            # Example nginx vhost
   Jenkinsfile
@@ -45,6 +45,7 @@ ziving/
 | `GET` | `/v1/ziving/page/:slug` | Public page + raised total |
 | `GET` | `/v1/ziving/page/:slug/events` | Live donation feed |
 | `POST` | `/v1/ziving/page/:slug/feature` | Homepage promo quote (`x-overlay-token`) |
+| `POST` | `/v1/ziving/page/:slug/recover` | Re-present UFVK → fresh `ownerToken` |
 | `POST` | `/v1/overlay/:id/topup` | Scanning top-up quote |
 | `DELETE` | `/v1/overlay/:id` | Cancel |
 
@@ -58,6 +59,7 @@ On `https://mcp.winbit32.com/mcp` (prefix e.g. `winbit32`):
 - `*_ziving_create_page` — create + ZEC funding quote (keep `ownerToken`)
 - `*_ziving_get_page` / `*_ziving_featured` — reads
 - `*_ziving_feature` — homepage promo quote
+- `*_ziving_recover` — unlock manage with the campaign UFVK
 - `*_ziving_topup` / `*_ziving_cancel` — manage
 
 Tools POST to the public REST base when `fetch` is available.
