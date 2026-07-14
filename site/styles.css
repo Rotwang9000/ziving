@@ -283,6 +283,23 @@ main { max-width: 920px; margin: 0 auto; padding: 0 1.5rem 4rem; }
 	font-weight: 700;
 }
 
+.campaign-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+	gap: 1.5rem;
+	align-items: start;
+	padding-top: 1.5rem;
+}
+.campaign-main { min-width: 0; }
+.campaign-layout .donate-card {
+	position: sticky;
+	top: 1rem;
+}
+@media (max-width: 720px) {
+	.campaign-layout { grid-template-columns: 1fr; }
+	.campaign-layout .donate-card { position: static; }
+}
+
 .campaign-hero {
 	display: grid;
 	grid-template-columns: 1fr minmax(220px, 280px);
@@ -417,7 +434,7 @@ main { max-width: 920px; margin: 0 auto; padding: 0 1.5rem 4rem; }
 .donate-card__cosign { margin-top: 0.75rem; }
 .pay-card__qr-wrap[hidden] { display: none !important; }
 
-.donations { margin-top: 2rem; }
+.donations { margin-top: 1.75rem; }
 .donation-row {
 	display: flex;
 	justify-content: space-between;
