@@ -4,6 +4,7 @@ const API_BASE = (document.documentElement.dataset.api || 'https://mcp.winbit32.
 const WINBIT32 = 'https://winbit32.com';
 const ZIVING_ORIGIN = location.origin.replace(/\/$/u, '');
 const POLL_MS = 10_000;
+const WIZARD_STEPS = 4;
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...kids) => {
@@ -71,7 +72,7 @@ function clearOwnerCredentials(slug) {
 
 async function renderQr(canvas, address) {
 	if (!globalThis.QRCode) return;
-	await QRCode.toCanvas(canvas, `zcash:${address}`, { width: 180, margin: 1, color: { dark: '#14121f' } });
+	await QRCode.toCanvas(canvas, `zcash:${address}`, { width: 180, margin: 1, color: { dark: '#1a2420' } });
 }
 
 function resolveCampaignSlug() {
@@ -82,7 +83,30 @@ function resolveCampaignSlug() {
 	return m ? normaliseSlug(m[1]) : '';
 }
 
-// ── Home / create ───────────────────────────────────────────────────
+// ── Home / create wizard ────────────────────────────────────────────
+
+async function loadFeatured() {
+	const section = $('featured');
+	const list = $('featured-list');
+	if (!section || !list) return;
+	try {
+		const out = await api('/v1/ziving/featured');
+		const campaigns = out.campaigns || [];
+		if (!campaigns.length) {
+			section.hidden = true;
+			return;
+		}
+		section.hidden = false;
+		list.replaceChildren(...campaigns.map((c) =>
+			el('a', { class: 'featured-item', href: c.urls?.page || pageUrl(c.slug) },
+				el('p', { class: 'featured-item__title', text: c.label || c.slug }),
+				el('p', { class: 'featured-item__meta',
+					text: `${fmtZec(c.raised?.zec)} raised · ${c.raised?.donationCount ?? 0} gifts` }))
+		));
+	} catch {
+		section.hidden = true;
+	}
+}
 
 function initHome() {
 	const dialog = $('create-dialog');
@@ -91,14 +115,72 @@ function initHome() {
 	const form = $('create-form');
 	const slugInput = $('slug');
 	const slugPreview = $('slug-preview');
+	let step = 1;
 
 	$('link-vault').href = `${WINBIT32}/#winbit32.exe/createvault.exe`;
 	$('link-receive').href = `${WINBIT32}/#winbit32.exe/zcashrecv.exe`;
 	$('link-purse').href = `${WINBIT32}/#winbit32.exe/purse.exe`;
 
-	openBtn?.addEventListener('click', () => dialog?.showModal());
+	loadFeatured();
+
+	function setStep(n) {
+		step = Math.max(1, Math.min(WIZARD_STEPS, n));
+		for (const pane of form.querySelectorAll('.wizard-pane')) {
+			const id = Number(pane.dataset.pane);
+			const on = id === step;
+			pane.hidden = !on;
+			pane.classList.toggle('is-active', on);
+		}
+		for (const li of document.querySelectorAll('#wizard-steps li')) {
+			const s = Number(li.dataset.step);
+			li.classList.toggle('is-active', s === step);
+			li.classList.toggle('is-done', s < step);
+		}
+		$('wizard-back').hidden = step <= 1;
+		$('wizard-next').hidden = step >= WIZARD_STEPS;
+		$('create-submit').hidden = step < WIZARD_STEPS;
+		if (step === WIZARD_STEPS) {
+			const review = $('create-review');
+			const slug = normaliseSlug(slugInput.value) || 'your-slug';
+			review.innerHTML = `
+				<p><strong>${($('label').value.trim() || slug)}</strong></p>
+				<p>URL: <code>${pageUrl(slug)}</code></p>
+				<p>Scanning prepaid: $${$('amountUsd').value}</p>
+				<p class="field__hint">You'll get an owner token once — save it. Then pay the ZEC quote to fund scanning.</p>
+			`;
+		}
+	}
+
+	function validateStep(n) {
+		if (n === 1) {
+			const slug = normaliseSlug(slugInput.value);
+			if (slug.length < 3) { slugInput.focus(); return false; }
+			slugInput.value = slug;
+			if (!$('label').value.trim()) { $('label').focus(); return false; }
+			return true;
+		}
+		if (n === 2) {
+			if (!$('ufvk').value.trim().startsWith('uview')) { $('ufvk').focus(); return false; }
+			if (!$('address').value.trim().startsWith('u')) { $('address').focus(); return false; }
+			return true;
+		}
+		return true;
+	}
+
+	openBtn?.addEventListener('click', () => {
+		setStep(1);
+		const result = $('create-result');
+		if (result) { result.hidden = true; result.innerHTML = ''; }
+		dialog?.showModal();
+	});
 	closeBtn?.addEventListener('click', () => dialog?.close());
 	dialog?.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+
+	$('wizard-next')?.addEventListener('click', () => {
+		if (!validateStep(step)) return;
+		setStep(step + 1);
+	});
+	$('wizard-back')?.addEventListener('click', () => setStep(step - 1));
 
 	slugInput?.addEventListener('input', () => {
 		const s = normaliseSlug(slugInput.value) || 'your-slug';
@@ -107,6 +189,10 @@ function initHome() {
 
 	form?.addEventListener('submit', async (e) => {
 		e.preventDefault();
+		if (!validateStep(1) || !validateStep(2)) {
+			setStep(!validateStep(1) ? 1 : 2);
+			return;
+		}
 		const result = $('create-result');
 		const submit = $('create-submit');
 		if (result) { result.hidden = true; result.innerHTML = ''; }
@@ -126,6 +212,7 @@ function initHome() {
 			const out = await api('/v1/ziving/page', { method: 'POST', body: JSON.stringify(payload) });
 			saveOwnerCredentials(slug, out.overlayId, out.ownerToken);
 			const url = out.urls?.page || pageUrl(slug);
+			$('create-review').hidden = true;
 			if (result) {
 				result.hidden = false;
 				result.className = 'result-box';
@@ -140,6 +227,8 @@ function initHome() {
 					<p class="field__hint">${out.graceNote || ''}</p>
 				`;
 			}
+			$('create-submit').hidden = true;
+			$('wizard-back').hidden = true;
 		} catch (err) {
 			if (result) {
 				result.hidden = false;
@@ -150,6 +239,8 @@ function initHome() {
 			submit.disabled = false;
 		}
 	});
+
+	setStep(1);
 }
 
 // ── Campaign page ───────────────────────────────────────────────────
@@ -188,6 +279,7 @@ async function loadCampaign(slug) {
 			el('div', { class: 'campaign-hero' },
 				el('div', {},
 					el('span', { class: statusClass, text: page.active ? 'Live' : 'Paused' }),
+					page.featured ? el('span', { class: 'status-pill', style: 'margin-left:0.4rem;color:var(--gold);', text: 'Featured' }) : null,
 					el('h1', { class: 'campaign-title', text: page.label || slug }),
 					page.story ? el('p', { class: 'campaign-story', text: page.story }) : null,
 					progress),
@@ -265,14 +357,18 @@ function initManage() {
 		session.overlayId = page.overlayId;
 		const card = $('status-card');
 		const pill = page.active ? 'status-pill status-pill--active' : 'status-pill status-pill--paused';
+		const featLine = page.featured
+			? `Featured until ${page.featured_until ? new Date(page.featured_until).toLocaleString() : '—'}`
+			: 'Not currently featured on the homepage';
 		card.replaceChildren(
 			el('div', { style: 'display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap;' },
-				el('h3', { style: 'margin:0;', text: page.label || session.slug }),
+				el('h3', { style: 'margin:0;font-family:var(--display);font-weight:500;', text: page.label || session.slug }),
 				el('span', { class: pill, text: page.state || (page.active ? 'active' : 'paused') })),
 			el('p', { style: 'color:var(--muted);margin:0.75rem 0 0;font-size:0.9rem;' },
 				el('a', { href: pageUrl(session.slug), text: pageUrl(session.slug) })),
 			el('p', { style: 'color:var(--muted);margin:0.5rem 0 0;font-size:0.9rem;',
 				text: `Credit: $${page.credit?.remaining_usd ?? '?'} · ~${page.credit?.days_remaining ?? '?'} days · raised ${fmtZec(page.raised?.zec)}` }),
+			el('p', { style: 'color:var(--muted);margin:0.35rem 0 0;font-size:0.82rem;', text: featLine }),
 			el('p', { style: 'color:var(--muted);margin:0.35rem 0 0;font-size:0.82rem;',
 				text: `Expires ${page.expires_at ? new Date(page.expires_at).toLocaleString() : '—'}` })
 		);
@@ -340,6 +436,36 @@ function initManage() {
 		}
 	});
 
+	$('feature-form')?.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		const box = $('feature-result');
+		const btn = $('feature-submit');
+		box.hidden = true;
+		btn.disabled = true;
+		try {
+			const days = Math.floor(Number($('feature-days').value));
+			const quote = await api(`/v1/ziving/page/${encodeURIComponent(session.slug)}/feature`, {
+				method: 'POST',
+				headers: { 'x-overlay-token': session.ownerToken },
+				body: JSON.stringify({ days })
+			});
+			box.hidden = false;
+			box.className = 'result-box';
+			box.innerHTML = `
+				<p><strong>Homepage feature — ${days} day${days === 1 ? '' : 's'}</strong></p>
+				<p>Send ${quote.payment?.amount?.display || 'ZEC'} to <code>${quote.payment?.payTo}</code></p>
+				<p>Memo: <code>${quote.payment?.memo}</code></p>
+				<p class="field__hint">${quote.note || ''}</p>
+			`;
+		} catch (err) {
+			box.hidden = false;
+			box.className = 'result-box result-box--warn';
+			box.textContent = err.message;
+		} finally {
+			btn.disabled = false;
+		}
+	});
+
 	$('cancel-btn')?.addEventListener('click', async () => {
 		if (!globalThis.confirm(`Cancel campaign "${session.slug}"? This stops scanning and cannot be undone.`)) return;
 		const box = $('cancel-result');
@@ -355,6 +481,7 @@ function initManage() {
 			box.textContent = 'Campaign cancelled. Scanning has stopped.';
 			$('cancel-btn').disabled = true;
 			$('topup-submit').disabled = true;
+			if ($('feature-submit')) $('feature-submit').disabled = true;
 			await refreshStatus().catch(() => {});
 		} catch (err) {
 			box.hidden = false;

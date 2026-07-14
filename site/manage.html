@@ -4,16 +4,20 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<title>Manage page — Ziving</title>
-	<meta name="description" content="Top up scanning credit or cancel your Ziving campaign. Owner token required." />
-	<meta name="theme-color" content="#0c0b12" />
+	<meta name="description" content="Top up scanning, buy homepage promotion, or cancel your Ziving campaign. Owner token required." />
+	<meta name="theme-color" content="#1a2420" />
 	<meta name="robots" content="noindex" />
 	<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
 	<link rel="stylesheet" href="styles.css" />
 </head>
 <body data-page="manage">
+	<div class="atmos" aria-hidden="true"></div>
 	<header class="site-header">
 		<a class="brand" href="/">
-			<span class="brand__z">z</span>iving<span class="brand__tag">.org</span>
+			<span class="brand__mark">z</span><span class="brand__name">iving</span><span class="brand__tag">.org</span>
 		</a>
 		<nav class="site-nav">
 			<a href="/">Home</a>
@@ -23,7 +27,7 @@
 
 	<main>
 		<h1 class="section-title">Manage your <span class="accent">page</span></h1>
-		<p class="hero__lead" style="margin:0 0 1.5rem;text-align:left;max-width:40rem;">
+		<p class="hero__lead" style="margin:0 0 1.5rem;max-width:40rem;">
 			Use the owner token shown once at creation. It never leaves your browser except as the
 			<code>x-overlay-token</code> header to the gateway.
 		</p>
@@ -51,18 +55,18 @@
 		<section id="manage-panel" hidden style="margin-top:1.5rem;max-width:40rem;">
 			<div class="card" id="status-card"></div>
 
-			<div class="card" style="margin-top:1rem;">
+			<div class="card manage-block">
 				<h3>Top up scanning</h3>
 				<p style="color:var(--muted);font-size:0.9rem;margin:0 0 1rem;">
-					Pay ZEC to the gateway (memo quote). Credit lands after confirmations.
+					$0.10/day. Pay ZEC to the gateway (memo quote). Credit lands after confirmations.
 				</p>
 				<form id="topup-form">
 					<div class="field">
 						<label for="topup-usd">Amount (USD)</label>
 						<select id="topup-usd">
-							<option value="2">$2 (~100 days)</option>
-							<option value="5" selected>$5 (~250 days)</option>
-							<option value="10">$10 (~500 days)</option>
+							<option value="5">$5 (~50 days)</option>
+							<option value="10" selected>$10 (~100 days)</option>
+							<option value="25">$25 (~250 days)</option>
 						</select>
 					</div>
 					<div class="form-actions" style="justify-content:flex-start;">
@@ -72,7 +76,29 @@
 				<div id="topup-result" hidden></div>
 			</div>
 
-			<div class="card" style="margin-top:1rem;">
+			<div class="card manage-block">
+				<h3>Homepage promotion</h3>
+				<p style="color:var(--muted);font-size:0.9rem;margin:0 0 1rem;">
+					$5/day on ziving.org. Separate from scanning credit — another ZEC memo quote.
+				</p>
+				<form id="feature-form">
+					<div class="field">
+						<label for="feature-days">Days on homepage</label>
+						<select id="feature-days">
+							<option value="1">1 day — $5</option>
+							<option value="3" selected>3 days — $15</option>
+							<option value="7">7 days — $35</option>
+							<option value="14">14 days — $70</option>
+						</select>
+					</div>
+					<div class="form-actions" style="justify-content:flex-start;">
+						<button type="submit" class="btn btn--primary" id="feature-submit">Get feature quote</button>
+					</div>
+				</form>
+				<div id="feature-result" hidden></div>
+			</div>
+
+			<div class="card manage-block">
 				<h3>Stream overlay</h3>
 				<p style="color:var(--muted);font-size:0.9rem;margin:0 0 0.75rem;">
 					Add this URL as an OBS browser source (transparent background).
@@ -81,7 +107,7 @@
 				<button type="button" class="btn btn--ghost btn--sm" id="copy-obs">Copy overlay URL</button>
 			</div>
 
-			<div class="card" style="margin-top:1rem;border-color:rgba(255,107,122,0.35);">
+			<div class="card manage-block" style="border-color:rgba(224,120,120,0.35);">
 				<h3 style="color:var(--danger);">Cancel page</h3>
 				<p style="color:var(--muted);font-size:0.9rem;margin:0 0 1rem;">
 					Stops scanning. Public page stays briefly then is pruned. This cannot be undone.
