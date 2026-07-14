@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Ziving — private Zcash fundraising</title>
+	<meta name="description" content="Ziving is JustGiving for Zcash: create a fundraising page, receive shielded donations directly to your wallet, show them live on your page or stream. No accounts, minimal data, encrypted view keys." />
+	<meta name="theme-color" content="#0c0b12" />
+	<meta property="og:title" content="Ziving — giving, with a z" />
+	<meta property="og:description" content="Private Zcash fundraising pages. Donors pay you directly; we watch with a read-only key." />
+	<meta property="og:type" content="website" />
+	<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+	<link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="home">
+	<header class="site-header">
+		<a class="brand" href="/">
+			<span class="brand__z">z</span>iving<span class="brand__tag">.org</span>
+		</a>
+		<nav class="site-nav">
+			<a href="#how">How it works</a>
+			<a href="#privacy">Privacy</a>
+			<a href="https://winbit32.com" rel="noopener">Winbit32 wallet</a>
+		</nav>
+	</header>
+
+	<main>
+		<section class="hero">
+			<h1>Fundraise with <span class="accent">shielded ZEC</span></h1>
+			<p class="hero__lead">
+				Like JustGiving, but private-by-default. Set up a page, share your donation address,
+				and show live gifts on your campaign or stream. We never hold your funds — donors pay
+				<strong>you</strong> directly.
+			</p>
+			<div class="hero__actions">
+				<button id="open-create" class="btn btn--primary" type="button">Start a page</button>
+				<a class="btn btn--ghost" href="#how">How it works</a>
+			</div>
+		</section>
+
+		<div class="grid-3">
+			<article class="card">
+				<h3>No custody</h3>
+				<p>Donations land in your shielded wallet. We only hold a read-only view key to detect incoming notes.</p>
+			</article>
+			<article class="card">
+				<h3>Minimal data</h3>
+				<p>No accounts or email. An encrypted UFVK, your public address, and optional page text — that's it.</p>
+			</article>
+			<article class="card">
+				<h3>You pay on-chain</h3>
+				<p>Scanning costs ~$0.02/day, prepaid in ZEC. Grace credit gets you live immediately.</p>
+			</article>
+		</div>
+
+		<h2 id="how" class="section-title">How it <span class="accent">works</span></h2>
+		<ol class="privacy-list" style="list-style: decimal; padding-left: 1.2rem;">
+			<li style="border:0;padding:0.4rem 0;"><strong>Create a donation wallet</strong> in Winbit32 — we recommend a dedicated vault (2-of-2 with your phone) via the purse or vault wizard.</li>
+			<li style="border:0;padding:0.4rem 0;"><strong>Copy your UFVK + unified address</strong> from the Zcash receive wizard. Use a donation-only wallet: a view key reveals all incoming amounts and memos.</li>
+			<li style="border:0;padding:0.4rem 0;"><strong>Pick a page slug</strong> (e.g. <code>alice-marathon</code>), write your story, and fund a few days of scanning with a small ZEC payment.</li>
+			<li style="border:0;padding:0.4rem 0;"><strong>Share</strong> <code>ziving.org/p.html?slug=…</code> and add the OBS overlay for stream alerts.</li>
+		</ol>
+
+		<h2 id="privacy" class="section-title">Privacy <span class="accent">posture</span></h2>
+		<ul class="privacy-list">
+			<li>UFVK encrypted at rest (AES-256-GCM); decrypted only in the scanner process</li>
+			<li>No accounts, emails, or IP logging on campaign pages</li>
+			<li>Donation events (amount + memo) pruned after 30 days</li>
+			<li>Owner token shown once — store it yourself; we only keep a hash</li>
+			<li>Capability URLs: unguessable overlay id for stream feeds; public slug for pages</li>
+		</ul>
+	</main>
+
+	<footer class="site-footer">
+		Ziving runs on the <a href="https://github.com/FungeLLC/winbit32MCP" rel="noopener">payments-gateway</a>
+		UFVK scanner · wallet tooling by <a href="https://winbit32.com" rel="noopener">Winbit32</a>
+	</footer>
+
+	<dialog id="create-dialog" aria-labelledby="create-title">
+		<div class="dialog-inner">
+			<h2 id="create-title">Start your page</h2>
+			<p class="sub">No sign-up. You'll get a public URL and a one-time owner token.</p>
+
+			<div class="wallet-links" role="navigation" aria-label="Create wallet in Winbit32">
+				<a id="link-vault" href="#" rel="noopener" target="_blank">Create vault</a>
+				<a id="link-receive" href="#" rel="noopener" target="_blank">Receive wizard (UFVK)</a>
+				<a id="link-purse" href="#" rel="noopener" target="_blank">Purse / locket</a>
+			</div>
+
+			<form id="create-form">
+				<div class="field">
+					<label for="slug">Page URL slug</label>
+					<input id="slug" name="slug" required pattern="[a-z0-9-]{3,48}" placeholder="alice-marathon" autocomplete="off" />
+					<p class="field__hint">ziving.org/p.html?slug=<strong id="slug-preview">your-slug</strong></p>
+				</div>
+				<div class="field">
+					<label for="label">Title</label>
+					<input id="label" name="label" maxlength="60" placeholder="Alice runs for the shelter" />
+				</div>
+				<div class="field">
+					<label for="story">Story (optional, public)</label>
+					<textarea id="story" name="story" maxlength="4000" placeholder="Why you're fundraising…"></textarea>
+				</div>
+				<div class="field">
+					<label for="goalZec">Goal in ZEC (optional)</label>
+					<input id="goalZec" name="goalZec" type="number" min="0" step="any" placeholder="10" />
+				</div>
+				<div class="field">
+					<label for="ufvk">UFVK (view key)</label>
+					<textarea id="ufvk" name="ufvk" required rows="3" placeholder="uview1…" spellcheck="false"></textarea>
+					<p class="field__hint">Read-only. Cannot spend. Export from Winbit32 receive wizard.</p>
+				</div>
+				<div class="field">
+					<label for="address">Shielded unified address</label>
+					<textarea id="address" name="address" required rows="2" placeholder="u1…" spellcheck="false"></textarea>
+				</div>
+				<div class="field">
+					<label for="amountUsd">Prepay scanning (USD)</label>
+					<select id="amountUsd" name="amountUsd">
+						<option value="2">$2 (~100 days)</option>
+						<option value="5" selected>$5 (~250 days)</option>
+						<option value="10">$10 (~500 days)</option>
+					</select>
+					<p class="field__hint">Paid in ZEC to the gateway — you'll get payment instructions after submit.</p>
+				</div>
+				<div id="create-result" hidden></div>
+				<div class="form-actions">
+					<button type="button" class="btn btn--ghost" id="close-create">Cancel</button>
+					<button type="submit" class="btn btn--primary" id="create-submit">Create page</button>
+				</div>
+			</form>
+		</div>
+	</dialog>
+
+	<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+	<script src="app.js" type="module"></script>
+</body>
+</html>

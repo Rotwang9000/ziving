@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ziving Overlay</title>
+<style>
+	html, body {
+		margin: 0;
+		padding: 0;
+		background: transparent;
+		overflow: hidden;
+		font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+	}
+	#stage {
+		position: fixed;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		justify-content: flex-start;
+		gap: 12px;
+		padding: 18px;
+		pointer-events: none;
+	}
+	.alert {
+		min-width: 280px;
+		max-width: 460px;
+		background: linear-gradient(135deg, rgba(20, 18, 38, 0.94), rgba(52, 22, 78, 0.94));
+		border: 1px solid rgba(244, 183, 40, 0.55);
+		border-radius: 14px;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+		color: #fff;
+		padding: 14px 18px;
+		animation: slideIn 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+	}
+	.alert.leaving { animation: slideOut 0.4s ease-in forwards; }
+	.alert .head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 12px;
+	}
+	.alert .amount {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: #f4b728;
+		white-space: nowrap;
+	}
+	.alert .brand {
+		font-size: 0.65rem;
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+		opacity: 0.65;
+		color: #f4b728;
+	}
+	.alert .state {
+		font-size: 0.7rem;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		opacity: 0.7;
+	}
+	.alert .memo {
+		margin-top: 6px;
+		font-size: 1.02rem;
+		line-height: 1.35;
+		word-wrap: break-word;
+		white-space: pre-wrap;
+	}
+	#status {
+		position: fixed;
+		left: 10px;
+		bottom: 8px;
+		font-size: 0.7rem;
+		color: rgba(255, 255, 255, 0.45);
+	}
+	@keyframes slideIn {
+		from { transform: translateX(120%); opacity: 0; }
+		to   { transform: translateX(0);    opacity: 1; }
+	}
+	@keyframes slideOut {
+		to { transform: translateX(120%); opacity: 0; }
+	}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="status"></div>
+<script type="module">
+const params = new URLSearchParams(location.search);
+const overlay = params.get('overlay') || params.get('id');
+const slug = params.get('slug');
+const api = (params.get('api') || 'https://mcp.winbit32.com').replace(/\/$/u, '');
+const show = params.get('show') === 'seen' ? 'seen' : 'confirmed';
+const holdSec = Math.max(4, Math.min(120, Number(params.get('hold')) || 12));
+const stage = document.getElementById('stage');
+const status = document.getElementById('status');
+
+if (!overlay && !slug) {
+	status.textContent = 'Missing ?overlay=ov_… or ?slug=your-page';
+	throw new Error('no overlay or slug');
+}
+
+const storageKey = slug ? `ziving:cursor:${slug}` : `ziving:cursor:${overlay}`;
+let cursor = Number(localStorage.getItem(storageKey) || 0) || 0;
+let bootstrapped = cursor > 0;
+const queue = [];
+let draining = false;
+
+function eventsUrl(sinceId) {
+	if (slug) return `${api}/v1/ziving/page/${encodeURIComponent(slug)}/events?sinceId=${sinceId}`;
+	return `${api}/v1/overlay/${encodeURIComponent(overlay)}/events?sinceId=${sinceId}`;
+}
+
+function fmtZec(n) {
+	const v = Number(n);
+	if (!Number.isFinite(v)) return '? ZEC';
+	return `${v < 0.01 ? v.toFixed(4) : v.toFixed(3)} ZEC`;
+}
+
+function renderAlert(ev) {
+	const card = document.createElement('div');
+	card.className = 'alert';
+	const head = document.createElement('div');
+	head.className = 'head';
+	const amt = document.createElement('div');
+	amt.className = 'amount';
+	amt.textContent = fmtZec(ev.amountZec);
+	const meta = document.createElement('div');
+	meta.innerHTML = `<div class="brand">ziving</div><div class="state">${ev.status}</div>`;
+	head.append(amt, meta);
+	card.append(head);
+	if (ev.memo) {
+		const memo = document.createElement('div');
+		memo.className = 'memo';
+		memo.textContent = ev.memo;
+		card.append(memo);
+	}
+	stage.prepend(card);
+	setTimeout(() => {
+		card.classList.add('leaving');
+		setTimeout(() => card.remove(), 400);
+	}, holdSec * 1000);
+	while (stage.children.length > 6) stage.lastChild?.remove();
+}
+
+async function drain() {
+	if (draining) return;
+	draining = true;
+	while (queue.length) {
+		renderAlert(queue.shift());
+		await new Promise((r) => setTimeout(r, 350));
+	}
+	draining = false;
+}
+
+async function poll() {
+	try {
+		const res = await fetch(eventsUrl(cursor), { cache: 'no-store' });
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const data = await res.json();
+		let events = data.events || [];
+		if (!bootstrapped) {
+			bootstrapped = true;
+			if (events.length) cursor = events[events.length - 1].id;
+			localStorage.setItem(storageKey, String(cursor));
+			status.textContent = `Ready — ${events.length} historical skipped`;
+			return;
+		}
+		events = events.filter((e) => e.status === show || show === 'seen');
+		for (const ev of events) {
+			cursor = Math.max(cursor, ev.id);
+			queue.push(ev);
+		}
+		if (events.length) {
+			localStorage.setItem(storageKey, String(cursor));
+			drain();
+		}
+		status.textContent = `Live · cursor ${cursor}`;
+	} catch (err) {
+		status.textContent = `Poll error: ${err.message}`;
+	}
+}
+
+poll();
+setInterval(poll, 10000);
+</script>
+</body>
+</html>

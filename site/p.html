@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Campaign — Ziving</title>
+	<meta name="description" content="Donate shielded ZEC to this Ziving campaign." />
+	<meta name="theme-color" content="#0c0b12" />
+	<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+	<link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="campaign">
+	<header class="site-header">
+		<a class="brand" href="/">
+			<span class="brand__z">z</span>iving<span class="brand__tag">.org</span>
+		</a>
+		<nav class="site-nav">
+			<a id="obs-link" href="#" hidden>Stream overlay</a>
+			<a href="/">Start your own</a>
+		</nav>
+	</header>
+
+	<main id="campaign-root">
+		<p class="empty-state" id="campaign-loading">Loading campaign…</p>
+	</main>
+
+	<footer class="site-footer">
+		Donations go directly to the fundraiser's wallet · Powered by <a href="https://winbit32.com" rel="noopener">Winbit32</a>
+	</footer>
+
+	<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+	<script src="app.js" type="module"></script>
+</body>
+</html>
