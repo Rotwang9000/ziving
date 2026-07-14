@@ -1,0 +1,16 @@
+{
+  "name": "orchard-frost-wasm",
+  "type": "module",
+  "description": "FROST threshold signing for Zcash Orchard (RedPallas) — WASM bindings",
+  "version": "0.1.0",
+  "files": [
+    "orchard_frost_wasm_bg.wasm",
+    "orchard_frost_wasm.js",
+    "orchard_frost_wasm.d.ts"
+  ],
+  "main": "orchard_frost_wasm.js",
+  "types": "orchard_frost_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

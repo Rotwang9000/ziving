@@ -1,7 +1,6 @@
 // Ziving.org — static site (no build step). Talks to payments-gateway REST.
 
 const API_BASE = (document.documentElement.dataset.api || 'https://mcp.winbit32.com').replace(/\/$/u, '');
-const WINBIT32 = 'https://winbit32.com';
 const ZIVING_ORIGIN = location.origin.replace(/\/$/u, '');
 const POLL_MS = 10_000;
 const WIZARD_STEPS = 4;
@@ -85,6 +84,42 @@ function resolveCampaignSlug() {
 
 // ── Home / create wizard ────────────────────────────────────────────
 
+let walletKit = null;
+async function loadWalletKit() {
+	if (walletKit) return walletKit;
+	walletKit = await import('./lib/zcash-wallet.js');
+	return walletKit;
+}
+
+function getWalletCredentials() {
+	const mode = document.querySelector('.wallet-mode.is-active')?.dataset.walletMode || 'create';
+	if (mode === 'manual') {
+		return {
+			ufvk: ($('ufvk')?.value || '').trim(),
+			address: ($('address')?.value || '').trim()
+		};
+	}
+	return {
+		ufvk: ($('ufvk-hidden')?.value || '').trim(),
+		address: ($('address-hidden')?.value || '').trim()
+	};
+}
+
+function setWalletCredentials(ufvk, address) {
+	if ($('ufvk-hidden')) $('ufvk-hidden').value = ufvk || '';
+	if ($('address-hidden')) $('address-hidden').value = address || '';
+	if ($('ufvk')) $('ufvk').value = ufvk || '';
+	if ($('address')) $('address').value = address || '';
+}
+
+function walletCredentialsReady() {
+	const { ufvk, address } = getWalletCredentials();
+	const mode = document.querySelector('.wallet-mode.is-active')?.dataset.walletMode || 'create';
+	if (!ufvk.startsWith('uview') || !address.startsWith('u')) return false;
+	if (mode === 'create' && !$('wallet-phrase-saved')?.checked) return false;
+	return true;
+}
+
 async function loadFeatured() {
 	const section = $('featured');
 	const list = $('featured-list');
@@ -116,15 +151,41 @@ function initHome() {
 	const slugInput = $('slug');
 	const slugPreview = $('slug-preview');
 	let step = 1;
-
-	$('link-vault').href = `${WINBIT32}/#winbit32.exe/createvault.exe`;
-	$('link-receive').href = `${WINBIT32}/#winbit32.exe/zcashrecv.exe`;
-	$('link-purse').href = `${WINBIT32}/#winbit32.exe/purse.exe`;
+	let maxReached = 1;
+	let walletMode = 'create';
 
 	loadFeatured();
 
-	function setStep(n) {
-		step = Math.max(1, Math.min(WIZARD_STEPS, n));
+	function setWalletMode(mode) {
+		walletMode = mode;
+		for (const btn of document.querySelectorAll('.wallet-mode')) {
+			btn.classList.toggle('is-active', btn.dataset.walletMode === mode);
+		}
+		$('wallet-panel-create').hidden = mode !== 'create';
+		$('wallet-panel-existing').hidden = mode !== 'existing';
+		$('wallet-panel-manual').hidden = mode !== 'manual';
+		updateCreateButton();
+	}
+
+	function updateCreateButton() {
+		const submit = $('create-submit');
+		if (!submit) return;
+		const onLast = step >= WIZARD_STEPS;
+		const ready = onLast && walletCredentialsReady() && validateStep(1, { silent: true });
+		submit.hidden = !ready;
+		submit.disabled = !ready;
+		$('wizard-next').hidden = onLast;
+	}
+
+	function setStep(n, { force = false } = {}) {
+		const target = Math.max(1, Math.min(WIZARD_STEPS, n));
+		if (!force && target > step) {
+			for (let s = step; s < target; s += 1) {
+				if (!validateStep(s)) return false;
+			}
+		}
+		step = target;
+		maxReached = Math.max(maxReached, step);
 		for (const pane of form.querySelectorAll('.wizard-pane')) {
 			const id = Number(pane.dataset.pane);
 			const on = id === step;
@@ -135,62 +196,222 @@ function initHome() {
 			const s = Number(li.dataset.step);
 			li.classList.toggle('is-active', s === step);
 			li.classList.toggle('is-done', s < step);
+			li.setAttribute('role', 'button');
+			li.tabIndex = 0;
 		}
 		$('wizard-back').hidden = step <= 1;
-		$('wizard-next').hidden = step >= WIZARD_STEPS;
-		$('create-submit').hidden = step < WIZARD_STEPS;
 		if (step === WIZARD_STEPS) {
 			const review = $('create-review');
 			const slug = normaliseSlug(slugInput.value) || 'your-slug';
+			const { address } = getWalletCredentials();
+			review.hidden = false;
 			review.innerHTML = `
 				<p><strong>${($('label').value.trim() || slug)}</strong></p>
 				<p>URL: <code>${pageUrl(slug)}</code></p>
 				<p>Scanning prepaid: $${$('amountUsd').value}</p>
+				<p class="field__hint">Receive: <code>${address ? `${address.slice(0, 18)}…` : '(missing)'}</code></p>
 				<p class="field__hint">You'll get an owner token once — save it. Then pay the ZEC quote to fund scanning.</p>
 			`;
 		}
+		updateCreateButton();
+		return true;
 	}
 
-	function validateStep(n) {
+	function validateStep(n, { silent = false } = {}) {
 		if (n === 1) {
 			const slug = normaliseSlug(slugInput.value);
-			if (slug.length < 3) { slugInput.focus(); return false; }
+			if (slug.length < 3) {
+				if (!silent) slugInput.focus();
+				return false;
+			}
 			slugInput.value = slug;
-			if (!$('label').value.trim()) { $('label').focus(); return false; }
+			if (!$('label').value.trim()) {
+				if (!silent) $('label').focus();
+				return false;
+			}
 			return true;
 		}
 		if (n === 2) {
-			if (!$('ufvk').value.trim().startsWith('uview')) { $('ufvk').focus(); return false; }
-			if (!$('address').value.trim().startsWith('u')) { $('address').focus(); return false; }
+			if (!walletCredentialsReady()) {
+				if (!silent) {
+					const mode = walletMode;
+					if (mode === 'create' && getWalletCredentials().ufvk && !$('wallet-phrase-saved')?.checked) {
+						$('wallet-phrase-saved')?.focus();
+					} else if (mode === 'manual') {
+						$('ufvk')?.focus();
+					} else if (mode === 'create') {
+						$('wallet-generate')?.focus();
+					} else {
+						$('wallet-phrase-input')?.focus();
+					}
+				}
+				return false;
+			}
 			return true;
 		}
 		return true;
 	}
 
+	function resetWizard() {
+		maxReached = 1;
+		setWalletCredentials('', '');
+		if ($('wallet-created')) $('wallet-created').hidden = true;
+		if ($('wallet-phrase')) $('wallet-phrase').textContent = '';
+		if ($('wallet-phrase-saved')) $('wallet-phrase-saved').checked = false;
+		if ($('wallet-phrase-input')) $('wallet-phrase-input').value = '';
+		if ($('wallet-file')) $('wallet-file').value = '';
+		if ($('wallet-password')) $('wallet-password').value = '';
+		if ($('wallet-password-wrap')) $('wallet-password-wrap').hidden = true;
+		if ($('wallet-create-status')) $('wallet-create-status').textContent = '';
+		if ($('wallet-existing-status')) $('wallet-existing-status').textContent = '';
+		if ($('create-result')) { $('create-result').hidden = true; $('create-result').innerHTML = ''; }
+		if ($('create-review')) $('create-review').hidden = false;
+		setWalletMode('create');
+		setStep(1, { force: true });
+	}
+
 	openBtn?.addEventListener('click', () => {
-		setStep(1);
-		const result = $('create-result');
-		if (result) { result.hidden = true; result.innerHTML = ''; }
+		resetWizard();
 		dialog?.showModal();
+		// Warm the WASM while the user fills step 1.
+		loadWalletKit().catch(() => {});
 	});
 	closeBtn?.addEventListener('click', () => dialog?.close());
 	dialog?.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+
+	for (const li of document.querySelectorAll('#wizard-steps li')) {
+		const go = () => {
+			const target = Number(li.dataset.step);
+			if (target === step) return;
+			if (target < step) {
+				setStep(target, { force: true });
+				return;
+			}
+			setStep(target);
+		};
+		li.addEventListener('click', go);
+		li.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+		});
+	}
 
 	$('wizard-next')?.addEventListener('click', () => {
 		if (!validateStep(step)) return;
 		setStep(step + 1);
 	});
-	$('wizard-back')?.addEventListener('click', () => setStep(step - 1));
+	$('wizard-back')?.addEventListener('click', () => setStep(step - 1, { force: true }));
 
 	slugInput?.addEventListener('input', () => {
 		const s = normaliseSlug(slugInput.value) || 'your-slug';
 		if (slugPreview) slugPreview.textContent = s;
+		updateCreateButton();
+	});
+	$('label')?.addEventListener('input', updateCreateButton);
+
+	for (const btn of document.querySelectorAll('.wallet-mode')) {
+		btn.addEventListener('click', () => setWalletMode(btn.dataset.walletMode));
+	}
+
+	$('wallet-generate')?.addEventListener('click', async () => {
+		const status = $('wallet-create-status');
+		const btn = $('wallet-generate');
+		status.textContent = 'Generating…';
+		btn.disabled = true;
+		try {
+			const kit = await loadWalletKit();
+			const out = await kit.createDonationWallet();
+			setWalletCredentials(out.ufvk, out.address);
+			$('wallet-phrase').textContent = out.phrase;
+			$('wallet-created').hidden = false;
+			$('wallet-phrase-saved').checked = false;
+			$('wallet-create-addr').textContent = `Address: ${out.address.slice(0, 22)}…`;
+			status.textContent = 'Wallet ready — save the phrase before continuing.';
+			updateCreateButton();
+		} catch (err) {
+			status.textContent = err.message || String(err);
+		} finally {
+			btn.disabled = false;
+		}
+	});
+
+	$('wallet-copy-phrase')?.addEventListener('click', async () => {
+		const phrase = $('wallet-phrase')?.textContent || '';
+		if (!phrase) return;
+		await navigator.clipboard.writeText(phrase);
+		$('wallet-copy-phrase').textContent = 'Copied!';
+		setTimeout(() => { $('wallet-copy-phrase').textContent = 'Copy phrase'; }, 2000);
+	});
+
+	$('wallet-download-phrase')?.addEventListener('click', () => {
+		const phrase = $('wallet-phrase')?.textContent || '';
+		if (!phrase) return;
+		const blob = new Blob([`${phrase}\n`], { type: 'text/plain' });
+		const a = document.createElement('a');
+		a.href = URL.createObjectURL(blob);
+		a.download = `ziving-donation-seed-${Date.now()}.txt`;
+		a.click();
+		URL.revokeObjectURL(a.href);
+	});
+
+	$('wallet-phrase-saved')?.addEventListener('change', updateCreateButton);
+	$('ufvk')?.addEventListener('input', updateCreateButton);
+	$('address')?.addEventListener('input', updateCreateButton);
+
+	async function applyExistingWallet(loader) {
+		const status = $('wallet-existing-status');
+		status.textContent = 'Opening…';
+		try {
+			const kit = await loadWalletKit();
+			const out = await loader(kit);
+			setWalletCredentials(out.ufvk, out.address);
+			status.textContent = `Ready — ${out.address.slice(0, 22)}…`;
+			$('wallet-password-wrap').hidden = true;
+			updateCreateButton();
+		} catch (err) {
+			if (err?.code === 'password_required') {
+				$('wallet-password-wrap').hidden = false;
+				$('wallet-password')?.focus();
+				status.textContent = err.message;
+				return;
+			}
+			status.textContent = err.message || String(err);
+		}
+	}
+
+	$('wallet-open-existing')?.addEventListener('click', async () => {
+		const phrase = ($('wallet-phrase-input')?.value || '').trim();
+		const file = $('wallet-file')?.files?.[0];
+		const password = ($('wallet-password')?.value || '').trim() || undefined;
+		if (file) {
+			await applyExistingWallet((kit) => kit.openFromFile(file, password));
+			return;
+		}
+		if (phrase.startsWith('uview')) {
+			await applyExistingWallet((kit) => kit.openFromUfvk(phrase));
+			return;
+		}
+		if (phrase) {
+			await applyExistingWallet((kit) => kit.openFromPhrase(phrase));
+			return;
+		}
+		$('wallet-existing-status').textContent = 'Paste a seed phrase or choose a file.';
+	});
+
+	$('wallet-file')?.addEventListener('change', async () => {
+		const file = $('wallet-file')?.files?.[0];
+		if (!file) return;
+		const password = ($('wallet-password')?.value || '').trim() || undefined;
+		await applyExistingWallet((kit) => kit.openFromFile(file, password));
 	});
 
 	form?.addEventListener('submit', async (e) => {
 		e.preventDefault();
+		if (step !== WIZARD_STEPS) {
+			if (validateStep(step)) setStep(step + 1);
+			return;
+		}
 		if (!validateStep(1) || !validateStep(2)) {
-			setStep(!validateStep(1) ? 1 : 2);
+			setStep(!validateStep(1, { silent: true }) ? 1 : 2, { force: true });
 			return;
 		}
 		const result = $('create-result');
@@ -200,13 +421,14 @@ function initHome() {
 		try {
 			const slug = normaliseSlug(slugInput.value);
 			const amountUsd = Number($('amountUsd').value);
+			const { ufvk, address } = getWalletCredentials();
 			const payload = {
 				slug,
 				label: $('label').value.trim() || slug,
 				story: $('story').value.trim() || undefined,
 				goalZec: $('goalZec').value ? Number($('goalZec').value) : undefined,
-				ufvk: $('ufvk').value.trim(),
-				address: $('address').value.trim(),
+				ufvk,
+				address,
 				amountUsdCents: Math.round(amountUsd * 100)
 			};
 			const out = await api('/v1/ziving/page', { method: 'POST', body: JSON.stringify(payload) });
@@ -235,12 +457,15 @@ function initHome() {
 				result.className = 'result-box result-box--warn';
 				result.textContent = err.message;
 			}
+			updateCreateButton();
 		} finally {
 			submit.disabled = false;
+			updateCreateButton();
 		}
 	});
 
-	setStep(1);
+	setWalletMode('create');
+	setStep(1, { force: true });
 }
 
 // ── Campaign page ───────────────────────────────────────────────────

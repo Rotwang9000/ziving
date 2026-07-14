@@ -1,0 +1,12 @@
+{
+	"name": "ziving",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build:wallet": "node wallet/build.mjs",
+		"predeploy": "npm run build:wallet"
+	},
+	"devDependencies": {
+		"esbuild": "^0.25.0"
+	}
+}

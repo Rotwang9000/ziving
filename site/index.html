@@ -113,15 +113,15 @@
 
 			<form id="create-form">
 				<section class="wizard-pane is-active" data-pane="1">
-					<div class="field">
-						<label for="label">What's the cause?</label>
-						<input id="label" name="label" maxlength="60" required placeholder="Alice runs for the shelter" />
-					</div>
-					<div class="field">
-						<label for="slug">Page URL</label>
-						<input id="slug" name="slug" required pattern="[a-z0-9-]{3,48}" placeholder="alice-marathon" autocomplete="off" />
-						<p class="field__hint">ziving.org/p/<strong id="slug-preview">your-slug</strong></p>
-					</div>
+				<div class="field">
+					<label for="label">What's the cause?</label>
+					<input id="label" name="label" maxlength="60" placeholder="Alice runs for the shelter" />
+				</div>
+				<div class="field">
+					<label for="slug">Page URL</label>
+					<input id="slug" name="slug" pattern="[a-z0-9-]{3,48}" placeholder="alice-marathon" autocomplete="off" />
+					<p class="field__hint">ziving.org/p/<strong id="slug-preview">your-slug</strong></p>
+				</div>
 					<div class="field">
 						<label for="story">Your story (public, optional)</label>
 						<textarea id="story" name="story" maxlength="4000" placeholder="Why you're fundraising…"></textarea>
@@ -133,20 +133,64 @@
 				</section>
 
 				<section class="wizard-pane" data-pane="2" hidden>
-					<p class="wizard-note">Use a <strong>donation-only</strong> wallet — the view key reveals incoming amounts and memos.</p>
-					<div class="wallet-links" role="navigation" aria-label="Create wallet in Winbit32">
-						<a id="link-vault" href="#" rel="noopener" target="_blank">Create vault</a>
-						<a id="link-receive" href="#" rel="noopener" target="_blank">Receive wizard</a>
-						<a id="link-purse" href="#" rel="noopener" target="_blank">Purse / locket</a>
+					<p class="wizard-note">Donation-only wallet — the view key can see incoming amounts and memos, but never spend.</p>
+					<div class="wallet-modes" role="tablist" aria-label="Wallet source">
+						<button type="button" class="wallet-mode is-active" data-wallet-mode="create" id="wm-create">Create</button>
+						<button type="button" class="wallet-mode" data-wallet-mode="existing" id="wm-existing">Existing</button>
+						<button type="button" class="wallet-mode" data-wallet-mode="manual" id="wm-manual">Manual</button>
 					</div>
-					<div class="field">
-						<label for="ufvk">UFVK (view key)</label>
-						<textarea id="ufvk" name="ufvk" required rows="3" placeholder="uview1…" spellcheck="false"></textarea>
+
+					<div id="wallet-panel-create" class="wallet-panel">
+						<p class="field__hint">Generate a fresh shielded wallet in this browser. Save the seed phrase — it is shown once.</p>
+						<button type="button" class="btn btn--primary" id="wallet-generate">Generate donation wallet</button>
+						<div id="wallet-created" class="wallet-created" hidden>
+							<p class="wallet-created__label">Seed phrase (save offline)</p>
+							<p id="wallet-phrase" class="wallet-phrase"></p>
+							<div class="form-actions" style="justify-content:flex-start;margin-top:0.5rem;">
+								<button type="button" class="btn btn--ghost btn--sm" id="wallet-copy-phrase">Copy phrase</button>
+								<button type="button" class="btn btn--ghost btn--sm" id="wallet-download-phrase">Download .txt</button>
+							</div>
+							<label class="wallet-confirm">
+								<input type="checkbox" id="wallet-phrase-saved" />
+								<span>I have saved this phrase somewhere safe</span>
+							</label>
+							<p class="field__hint" id="wallet-create-addr"></p>
+						</div>
+						<p id="wallet-create-status" class="field__hint" role="status"></p>
 					</div>
-					<div class="field">
-						<label for="address">Shielded unified address</label>
-						<textarea id="address" name="address" required rows="2" placeholder="u1…" spellcheck="false"></textarea>
+
+					<div id="wallet-panel-existing" class="wallet-panel" hidden>
+						<div class="field">
+							<label for="wallet-phrase-input">Seed phrase</label>
+							<textarea id="wallet-phrase-input" rows="3" placeholder="twelve or twenty-four words…" spellcheck="false" autocomplete="off"></textarea>
+						</div>
+						<div class="field">
+							<label for="wallet-file">Or open a file</label>
+							<input id="wallet-file" type="file" accept=".txt,.wult,.bak,.json,.png,text/plain,image/png" />
+							<p class="field__hint">Plain text (phrase / UFVK), Winbit32 <code>.wult</code>, or a locket <code>.png</code>.</p>
+						</div>
+						<div class="field" id="wallet-password-wrap" hidden>
+							<label for="wallet-password">Share password</label>
+							<input id="wallet-password" type="password" autocomplete="off" placeholder="if the share is encrypted…" />
+						</div>
+						<button type="button" class="btn btn--primary" id="wallet-open-existing">Use this wallet</button>
+						<p id="wallet-existing-status" class="field__hint" role="status"></p>
 					</div>
+
+					<div id="wallet-panel-manual" class="wallet-panel" hidden>
+						<div class="field">
+							<label for="ufvk">UFVK (view key)</label>
+							<textarea id="ufvk" name="ufvk" rows="3" placeholder="uview1…" spellcheck="false"></textarea>
+						</div>
+						<div class="field">
+							<label for="address">Shielded unified address</label>
+							<textarea id="address" name="address" rows="2" placeholder="u1…" spellcheck="false"></textarea>
+						</div>
+					</div>
+
+					<!-- Always present for create/existing modes to feed the form -->
+					<input type="hidden" id="ufvk-hidden" value="" />
+					<input type="hidden" id="address-hidden" value="" />
 				</section>
 
 				<section class="wizard-pane" data-pane="3" hidden>

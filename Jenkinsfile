@@ -48,6 +48,10 @@ pipeline {
 						[ -s "$f" ] || { echo "MISSING/EMPTY: $f"; exit 1; }
 					done
 
+					[ -s site/lib/zcash-wallet.js ] || { echo "MISSING: site/lib/zcash-wallet.js — run npm run build:wallet"; exit 1; }
+					[ -s site/lib/webzjs_keys_and_send_bg.wasm ] || { echo "MISSING: webzjs wasm"; exit 1; }
+					[ -s site/lib/orchard-frost/orchard_frost_wasm_bg.wasm ] || { echo "MISSING: orchard-frost wasm"; exit 1; }
+
 					if command -v node >/dev/null 2>&1; then
 						node --check site/app.js && echo "app.js: syntax OK"
 					else
@@ -55,6 +59,7 @@ pipeline {
 					fi
 
 					grep -q "mcp.winbit32.com" site/app.js || { echo "app.js does not target the gateway"; exit 1; }
+					grep -q "lib/zcash-wallet" site/app.js || { echo "wallet bundle import missing"; exit 1; }
 					grep -q "resolveCampaignSlug" site/app.js || { echo "pretty URL resolver missing"; exit 1; }
 					grep -q "initManage" site/app.js || { echo "manage UI missing"; exit 1; }
 					echo "Validate OK"
@@ -96,7 +101,7 @@ pipeline {
 					echo "GET $SITE_URL -> $code"
 					[ "$code" = "200" ] || { echo "home not 200"; exit 1; }
 					grep -qi "ziving\\|shielded ZEC\\|fundraising" /tmp/ziving-smoke.html || { echo "home marker missing"; exit 1; }
-					for a in styles.css app.js favicon.svg manage.html overlay.html p.html; do
+					for a in styles.css app.js favicon.svg manage.html overlay.html p.html lib/zcash-wallet.js lib/webzjs_keys_and_send_bg.wasm; do
 						c=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$SITE_URL/$a")
 						echo "  $a -> $c"
 						[ "$c" = "200" ] || { echo "asset $a not 200"; exit 1; }

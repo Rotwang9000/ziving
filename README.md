@@ -62,14 +62,24 @@ On `https://mcp.winbit32.com/mcp` (prefix e.g. `winbit32`):
 
 Tools POST to the public REST base when `fetch` is available.
 
-## Winbit32 wallet flow
+## On-page wallet
 
-1. **Create vault** — `#winbit32.exe/createvault.exe`
-2. **Export UFVK + UA** — `#winbit32.exe/zcashrecv.exe`
-3. **Wizard** on ziving.org (story → wallet → plan → go live) → pay ZEC quote
-4. **Manage** at `/manage.html` (top-up, homepage feature, overlay URL)
+The create wizard can generate or open a donation wallet without leaving ziving.org:
 
-Use a **donation-only wallet**: a UFVK reveals all incoming amounts and memos.
+| Mode | What it does |
+|------|----------------|
+| **Create** (default) | BIP-39 seed + UFVK/UA via WebZjs WASM in the browser |
+| **Existing** | Paste a phrase / UFVK, or open `.txt`, `.wult`, locket `.png` |
+| **Manual** | Paste UFVK + unified address yourself |
+
+Built with WebZjs + [`@winbit32/wallet-kit`](https://github.com/FungeLLC/WINBIT32/tree/main/packages/wallet-kit) (`.wult` unwrap + Orchard FROST derive). Rebuild after kit/WASM changes:
+
+```bash
+npm install
+npm run build:wallet   # → site/lib/zcash-wallet.js + WASM assets
+```
+
+Native multi-share `.vult` vaults still need Winbit32; export a `.wult`, locket photo, or seed phrase instead.
 
 ## Deploy
 
