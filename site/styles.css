@@ -356,26 +356,52 @@ main { max-width: 920px; margin: 0 auto; padding: 0 1.5rem 4rem; }
 	padding: 1.25rem;
 	text-align: center;
 }
-.donate-card__qr {
+.donate-card__qr-wrap {
 	margin: 0.75rem auto;
-	background: #fff;
 	padding: 10px;
+	background: #fff;
 	border-radius: 4px;
 	width: fit-content;
+	line-height: 0;
+}
+.donate-card__qr-wrap[hidden] { display: none !important; }
+.donate-card__qr {
+	display: block;
+	max-width: 100%;
 }
 .donate-card__addr {
 	font-family: var(--mono);
 	font-size: 0.72rem;
 	word-break: break-all;
 	color: var(--muted);
-	margin: 0.75rem 0;
+	margin: 0.75rem 0 0.4rem;
 	text-align: left;
+}
+.donate-card__copy-row {
+	display: flex;
+	justify-content: flex-start;
+	margin-bottom: 0.85rem;
+}
+.donate-card__fields {
+	text-align: left;
+	margin: 0 0 0.85rem;
+}
+.donate-card__fields .field { margin-bottom: 0.65rem; }
+.donate-card__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	justify-content: center;
+	margin-bottom: 0.35rem;
 }
 .donate-card__hint {
 	font-size: 0.82rem;
 	color: var(--muted);
 	margin-top: 0.75rem;
+	text-align: left;
+	line-height: 1.45;
 }
+.pay-card__qr-wrap[hidden] { display: none !important; }
 
 .donations { margin-top: 2rem; }
 .donation-row {

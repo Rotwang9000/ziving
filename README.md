@@ -75,6 +75,8 @@ The create wizard can generate or open a donation wallet without leaving ziving.
 | **Existing** | Paste a phrase / UFVK, or open `.txt`, `.wult`, locket `.png` |
 | **Manual** | Paste UFVK + unified address yourself |
 
+Campaign pages show a donate QR (amount/memo optional) plus **Send in Winbit32** / **Open Zcash Purse** deep links. Scanning credit quotes use the same QR helper.
+
 Built with WebZjs + [`@winbit32/wallet-kit`](https://github.com/FungeLLC/WINBIT32/tree/main/packages/wallet-kit) (`.wult` unwrap + Orchard FROST derive). Rebuild after kit/WASM changes:
 
 ```bash

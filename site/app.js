@@ -69,9 +69,47 @@ function clearOwnerCredentials(slug) {
 	try { localStorage.removeItem(`ziving:owner:${slug}`); } catch { /* ignore */ }
 }
 
+let qrCodeLib = null;
+async function loadQrCode() {
+	if (qrCodeLib?.toCanvas) return qrCodeLib;
+	if (globalThis.QRCode?.toCanvas) {
+		qrCodeLib = globalThis.QRCode;
+		return qrCodeLib;
+	}
+	const mod = await import('https://cdn.jsdelivr.net/npm/qrcode@1.5.4/+esm');
+	qrCodeLib = mod.default?.toCanvas ? mod.default : mod;
+	if (!qrCodeLib?.toCanvas) throw new Error('QR library missing toCanvas');
+	return qrCodeLib;
+}
+
 async function renderQr(canvas, payload, { width = 180 } = {}) {
-	if (!globalThis.QRCode || !canvas) return;
-	await QRCode.toCanvas(canvas, payload, { width, margin: 1, color: { dark: '#1a2420', light: '#ffffff' } });
+	if (!canvas || !payload) return false;
+	try {
+		const QR = await loadQrCode();
+		await QR.toCanvas(canvas, payload, {
+			width,
+			margin: 1,
+			color: { dark: '#1a2420', light: '#ffffff' },
+			errorCorrectionLevel: 'M'
+		});
+		canvas.hidden = false;
+		return true;
+	} catch (err) {
+		console.warn('QR render failed', err);
+		canvas.hidden = true;
+		return false;
+	}
+}
+
+function winbitSendUrl(address, { amount = '', memo = '' } = {}) {
+	const parts = [`recipient=${encodeURIComponent(address)}`, 'token=ZEC.ZEC'];
+	if (amount) parts.push(`amount=${encodeURIComponent(amount)}`);
+	if (memo) parts.push(`memo=${encodeURIComponent(memo)}`);
+	return `https://winbit32.com/#winbit32.exe/send.exe/${parts.join('&')}`;
+}
+
+function winbitPurseUrl() {
+	return 'https://winbit32.com/#winbit32.exe/purse.exe';
 }
 
 async function copyText(text, btn) {
@@ -117,7 +155,9 @@ function renderPaymentCard(root, payment, {
 	const credit = payment?.credit?.usd || '';
 	const uri = zcashPayUri({ payTo, amountDisplay: amount, memo });
 
-	const qrCanvas = el('canvas', { class: 'pay-card__qr', width: '200', height: '200' });
+	const qrCanvas = el('canvas', { class: 'pay-card__qr', hidden: 'true' });
+	const qrWrap = el('div', { class: 'pay-card__qr-wrap', hidden: 'true' }, qrCanvas);
+	const qrFallback = el('p', { class: 'field__hint', hidden: 'true', text: 'QR unavailable — copy the address below.' });
 	const copyAddrBtn = el('button', {
 		type: 'button', class: 'btn-icon', title: 'Copy address', 'aria-label': 'Copy address',
 		html: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
@@ -143,7 +183,8 @@ function renderPaymentCard(root, payment, {
 			credit ? el('span', { class: 'pay-card__credit', text: `→ ${credit} scanning credit` }) : null,
 			copyAmtBtn),
 		el('div', { class: 'pay-card__body' },
-			el('div', { class: 'pay-card__qr-wrap' }, qrCanvas),
+			qrWrap,
+			qrFallback,
 			el('div', { class: 'pay-card__fields' },
 				el('div', { class: 'pay-row' },
 					el('span', { class: 'pay-row__label', text: 'Pay to' }),
@@ -161,7 +202,10 @@ function renderPaymentCard(root, payment, {
 		graceNote ? el('p', { class: 'pay-card__note', text: graceNote }) : null,
 		extraLinks
 	);
-	renderQr(qrCanvas, uri, { width: 200 }).catch(() => {});
+	renderQr(qrCanvas, uri, { width: 200 }).then((ok) => {
+		qrWrap.hidden = !ok;
+		qrFallback.hidden = ok;
+	});
 }
 
 function resolveCampaignSlug() {
@@ -615,12 +659,48 @@ async function loadCampaign(slug) {
 			: el('p', { class: 'progress__raised', text: `${fmtZec(page.raised.zec)} raised · ${page.raised.donationCount} gifts` });
 
 		const statusClass = page.active ? 'status-pill status-pill--active' : 'status-pill status-pill--paused';
+
+		const qrCanvas = el('canvas', { class: 'donate-card__qr', id: 'donate-qr', hidden: 'true' });
+		const qrWrap = el('div', { class: 'donate-card__qr-wrap', id: 'donate-qr-wrap', hidden: 'true' }, qrCanvas);
+		const amountInput = el('input', {
+			id: 'donate-amount', type: 'number', min: '0', step: 'any',
+			placeholder: '0.1', inputmode: 'decimal'
+		});
+		const memoInput = el('input', {
+			id: 'donate-memo', type: 'text', maxlength: '512',
+			placeholder: 'optional memo', autocomplete: 'off'
+		});
+		const winbitSend = el('a', {
+			class: 'btn btn--primary btn--sm', id: 'donate-winbit-send',
+			href: winbitSendUrl(page.address), target: '_blank', rel: 'noopener',
+			text: 'Send in Winbit32'
+		});
+		const winbitPurse = el('a', {
+			class: 'btn btn--ghost btn--sm', id: 'donate-winbit-purse',
+			href: winbitPurseUrl(), target: '_blank', rel: 'noopener',
+			text: 'Open Zcash Purse'
+		});
+		const copyAddrBtn = el('button', {
+			class: 'btn btn--ghost btn--sm', type: 'button', id: 'copy-addr', text: 'Copy address'
+		});
+
 		const donateCard = el('aside', { class: 'donate-card' },
 			el('h3', { text: 'Donate shielded ZEC' }),
-			el('canvas', { class: 'donate-card__qr', id: 'donate-qr' }),
+			qrWrap,
 			el('p', { class: 'donate-card__addr', id: 'donate-addr', text: page.address }),
-			el('button', { class: 'btn btn--primary btn--sm', type: 'button', id: 'copy-addr', text: 'Copy address' }),
-			el('p', { class: 'donate-card__hint', text: 'Add an optional memo — it may appear on the page or stream.' }));
+			el('div', { class: 'donate-card__copy-row' }, copyAddrBtn),
+			el('div', { class: 'donate-card__fields' },
+				el('div', { class: 'field' },
+					el('label', { for: 'donate-amount', text: 'Amount (ZEC, optional)' }),
+					amountInput),
+				el('div', { class: 'field' },
+					el('label', { for: 'donate-memo', text: 'Memo (optional)' }),
+					memoInput)),
+			el('div', { class: 'donate-card__actions' }, winbitSend, winbitPurse),
+			el('p', {
+				class: 'donate-card__hint',
+				text: 'Scan the QR, copy the address, or open Winbit32 / Zcash Purse to send from your wallet. Gifts go straight to this address — Ziving never holds funds.'
+			}));
 
 		const donationsBox = el('section', { class: 'donations' },
 			el('h2', { class: 'section-title', html: 'Recent <span class="accent">gifts</span>' }),
@@ -638,10 +718,26 @@ async function loadCampaign(slug) {
 				donateCard),
 			donationsBox);
 
-		const canvas = $('donate-qr');
-		if (canvas) await renderQr(canvas, `zcash:${page.address}`);
-		$('copy-addr')?.addEventListener('click', async () => {
-			await copyText(page.address, $('copy-addr'));
+		async function refreshDonateQr() {
+			const amount = String(amountInput.value || '').trim();
+			const memo = String(memoInput.value || '').trim();
+			const uri = zcashPayUri({
+				payTo: page.address,
+				amountDisplay: amount || undefined,
+				memo: memo || undefined
+			});
+			winbitSend.href = winbitSendUrl(page.address, { amount, memo });
+			const ok = await renderQr(qrCanvas, uri, { width: 200 });
+			qrWrap.hidden = !ok;
+		}
+
+		await refreshDonateQr();
+		amountInput.addEventListener('input', () => { refreshDonateQr(); });
+		memoInput.addEventListener('input', () => { refreshDonateQr(); });
+		copyAddrBtn.addEventListener('click', () => copyText(page.address, copyAddrBtn));
+		winbitPurse.addEventListener('click', () => {
+			// Prefill clipboard so Purse paste is one tap away.
+			navigator.clipboard?.writeText(page.address).catch(() => {});
 		});
 
 		if (obsLink) {
