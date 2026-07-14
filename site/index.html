@@ -13,7 +13,7 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="styles.css?v=20260714d" />
+	<link rel="stylesheet" href="styles.css?v=20260714e" />
 </head>
 <body data-page="home">
 	<div class="atmos" aria-hidden="true"></div>
@@ -40,6 +40,10 @@
 				Shielded ZEC gifts land in your wallet. Share a page, watch them arrive —
 				no accounts, no custody, no fuss.
 			</p>
+			<p class="hero__warn" role="note">
+				We do <strong>not</strong> verify fundraisers, identities, or causes.
+				Anyone can start a page — that is intentional. Donors pay wallets directly; gift carefully.
+			</p>
 			<div class="hero__actions">
 				<button id="open-create" class="btn btn--primary" type="button">Start a page</button>
 				<a class="btn btn--ghost" href="#how">See how</a>
@@ -54,6 +58,7 @@
 
 		<section class="pitch">
 			<p class="pitch__line"><strong>No custody</strong> — donors pay your shielded address.</p>
+			<p class="pitch__line"><strong>No vetting</strong> — we never check who you are or what you raise for. That is the point.</p>
 			<p class="pitch__line"><strong>Minimal data</strong> — encrypted view key, address, optional story.</p>
 			<p class="pitch__line"><strong>On-chain billing</strong> — scanning from $0.10/day; homepage promo from $5/day.</p>
 		</section>
@@ -85,6 +90,7 @@
 			<ul class="privacy-list">
 				<li>UFVK encrypted at rest (AES-256-GCM); decrypted only in the scanner</li>
 				<li>No accounts, emails, or IP logging on campaign pages</li>
+				<li>No KYC, reputation, or cause checks — pages are unverified by design</li>
 				<li>Donation events pruned after 30 days</li>
 				<li>Owner token shown once — we only keep a hash</li>
 				<li>AI agents can set pages up via MCP on mcp.winbit32.com</li>
@@ -93,7 +99,8 @@
 	</main>
 
 	<footer class="site-footer">
-		Ziving · <a href="https://mcp.winbit32.com/v1/ziving" rel="noopener">API</a>
+		Ziving · unverified pages by design ·
+		<a href="https://mcp.winbit32.com/v1/ziving" rel="noopener">API</a>
 		· MCP tools <code>winbit32_*_ziving_*</code>
 		· wallet by <a href="https://winbit32.com" rel="noopener">Winbit32</a>
 	</footer>
@@ -102,7 +109,7 @@
 		<div class="dialog-inner wizard">
 			<header class="wizard__head">
 				<h2 id="create-title">Start your page</h2>
-				<p class="sub">Four short steps. No sign-up.</p>
+				<p class="sub">Four short steps. No sign-up — and no identity checks. Pages stay unverified on purpose.</p>
 				<ol class="wizard__steps" id="wizard-steps" aria-label="Progress">
 					<li data-step="1" class="is-active">Story</li>
 					<li data-step="2">Wallet</li>
@@ -224,6 +231,6 @@
 	</dialog>
 
 	<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
-	<script src="app.js?v=20260714d" type="module"></script>
+	<script src="app.js?v=20260714e" type="module"></script>
 </body>
 </html>

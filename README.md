@@ -9,6 +9,7 @@ Fundraisers create a campaign page, receive **shielded ZEC** directly to their o
 | Principle | How |
 |-----------|-----|
 | **No custody** | Donors pay the fundraiser's shielded address. We never hold spend keys. |
+| **No vetting** | No KYC, identity, or cause checks. Anyone can start a page — that is intentional. |
 | **Minimal data** | No accounts or email. Stored: encrypted UFVK, public address, optional label/story/goal, optional featured-until. |
 | **Encrypted secrets** | UFVK at rest under AES-256-GCM. Owner token stored as SHA-256 hash only. |
 | **On-chain billing** | Scanning **$0.10/day**, prepaid in ZEC. Homepage feature **$5/day** (separate quote). |

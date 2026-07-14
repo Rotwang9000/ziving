@@ -4,13 +4,13 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<title>Campaign — Ziving</title>
-	<meta name="description" content="Donate shielded ZEC to this Ziving campaign." />
+	<meta name="description" content="Donate shielded ZEC to this Ziving campaign. Pages are unverified — donors pay the fundraiser's wallet directly." />
 	<meta name="theme-color" content="#1a2420" />
-	<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+	<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="styles.css?v=20260714d" />
+	<link rel="stylesheet" href="/styles.css?v=20260714e" />
 </head>
 <body data-page="campaign">
 	<div class="atmos" aria-hidden="true"></div>
@@ -28,11 +28,19 @@
 		<p class="empty-state" id="campaign-loading">Loading campaign…</p>
 	</main>
 
+	<aside class="trust-banner" role="note">
+		<strong>Unverified page.</strong>
+		Ziving does not check who runs a campaign, their identity, or their cause —
+		that is the point of a private, no-accounts fundraiser.
+		Donations go straight to the address shown; send only what you are willing to gift.
+	</aside>
+
 	<footer class="site-footer">
-		Donations go directly to the fundraiser's wallet · Powered by <a href="https://winbit32.com" rel="noopener">Winbit32</a>
+		Donations go directly to the fundraiser's wallet · no KYC, no vetting ·
+		Powered by <a href="https://winbit32.com" rel="noopener">Winbit32</a>
 	</footer>
 
 	<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
-	<script src="app.js?v=20260714d" type="module"></script>
+	<script src="/app.js?v=20260714e" type="module"></script>
 </body>
 </html>

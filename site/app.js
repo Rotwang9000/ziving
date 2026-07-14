@@ -633,6 +633,7 @@ async function loadCampaign(slug) {
 					page.featured ? el('span', { class: 'status-pill', style: 'margin-left:0.4rem;color:var(--gold);', text: 'Featured' }) : null,
 					el('h1', { class: 'campaign-title', text: page.label || slug }),
 					page.story ? el('p', { class: 'campaign-story', text: page.story }) : null,
+					el('p', { class: 'campaign-unverified', text: 'Unverified campaign — Ziving does not check identity or cause. You are paying this wallet directly.' }),
 					progress),
 				donateCard),
 			donationsBox);
