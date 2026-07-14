@@ -101,17 +101,6 @@ async function renderQr(canvas, payload, { width = 180 } = {}) {
 	}
 }
 
-function winbitSendUrl(address, { amount = '', memo = '' } = {}) {
-	const parts = [`recipient=${encodeURIComponent(address)}`, 'token=ZEC.ZEC'];
-	if (amount) parts.push(`amount=${encodeURIComponent(amount)}`);
-	if (memo) parts.push(`memo=${encodeURIComponent(memo)}`);
-	return `https://winbit32.com/#winbit32.exe/send.exe/${parts.join('&')}`;
-}
-
-function winbitPurseUrl() {
-	return 'https://winbit32.com/#winbit32.exe/purse.exe';
-}
-
 async function copyText(text, btn) {
 	try {
 		await navigator.clipboard.writeText(text);
@@ -670,19 +659,36 @@ async function loadCampaign(slug) {
 			id: 'donate-memo', type: 'text', maxlength: '512',
 			placeholder: 'optional memo', autocomplete: 'off'
 		});
-		const winbitSend = el('a', {
-			class: 'btn btn--primary btn--sm', id: 'donate-winbit-send',
-			href: winbitSendUrl(page.address), target: '_blank', rel: 'noopener',
-			text: 'Send in Winbit32'
-		});
-		const winbitPurse = el('a', {
-			class: 'btn btn--ghost btn--sm', id: 'donate-winbit-purse',
-			href: winbitPurseUrl(), target: '_blank', rel: 'noopener',
-			text: 'Open Zcash Purse'
-		});
 		const copyAddrBtn = el('button', {
 			class: 'btn btn--ghost btn--sm', type: 'button', id: 'copy-addr', text: 'Copy address'
 		});
+
+		const donorPhrase = el('textarea', {
+			id: 'donor-phrase', rows: '2', spellcheck: 'false',
+			placeholder: 'Or paste BIP-39 phrase / UFVK (receive-only — sending needs a .wult)'
+		});
+		const donorFile = el('input', {
+			id: 'donor-file', type: 'file',
+			accept: '.wult,.json,.png,.txt,image/png,text/plain,application/json'
+		});
+		const donorPassword = el('input', {
+			id: 'donor-password', type: 'password', autocomplete: 'off', placeholder: 'password if encrypted'
+		});
+		const donorPasswordWrap = el('div', { class: 'field', hidden: 'true' },
+			el('label', { for: 'donor-password', text: 'Share password' }),
+			donorPassword);
+		const donorOpenBtn = el('button', {
+			type: 'button', class: 'btn btn--ghost btn--sm', id: 'donor-open', text: 'Open wallet'
+		});
+		const donorStatus = el('p', { class: 'field__hint', id: 'donor-status', text: '' });
+		const donorSendBtn = el('button', {
+			type: 'button', class: 'btn btn--primary', id: 'donor-send',
+			text: 'Donate with wallet', disabled: 'true'
+		});
+		const cosignQrCanvas = el('canvas', { class: 'donate-card__qr', id: 'cosign-qr', hidden: 'true' });
+		const cosignQrWrap = el('div', { class: 'donate-card__qr-wrap donate-card__cosign', id: 'cosign-qr-wrap', hidden: 'true' }, cosignQrCanvas);
+		const cosignHint = el('p', { class: 'donate-card__hint', id: 'cosign-hint', hidden: 'true' });
+		const donorResult = el('div', { id: 'donor-result', hidden: 'true' });
 
 		const donateCard = el('aside', { class: 'donate-card' },
 			el('h3', { text: 'Donate shielded ZEC' }),
@@ -691,15 +697,29 @@ async function loadCampaign(slug) {
 			el('div', { class: 'donate-card__copy-row' }, copyAddrBtn),
 			el('div', { class: 'donate-card__fields' },
 				el('div', { class: 'field' },
-					el('label', { for: 'donate-amount', text: 'Amount (ZEC, optional)' }),
+					el('label', { for: 'donate-amount', text: 'Amount (ZEC)' }),
 					amountInput),
 				el('div', { class: 'field' },
 					el('label', { for: 'donate-memo', text: 'Memo (optional)' }),
 					memoInput)),
-			el('div', { class: 'donate-card__actions' }, winbitSend, winbitPurse),
+			el('div', { class: 'donate-kit' },
+				el('h4', { class: 'donate-kit__title', text: 'Pay with Winbit32 wallet kit' }),
+				el('p', { class: 'field__hint', text: 'Open a .wult vault share or locket (same as Secresea). Your other device co-signs via the Winbit32 cosigner.' }),
+				el('div', { class: 'field' },
+					el('label', { for: 'donor-file', text: '.wult / locket PNG' }),
+					donorFile),
+				donorPasswordWrap,
+				el('div', { class: 'field' },
+					el('label', { for: 'donor-phrase', text: 'Or phrase / UFVK' }),
+					donorPhrase),
+				el('div', { class: 'donate-card__actions' }, donorOpenBtn, donorSendBtn),
+				donorStatus,
+				cosignQrWrap,
+				cosignHint,
+				donorResult),
 			el('p', {
 				class: 'donate-card__hint',
-				text: 'Scan the QR, copy the address, or open Winbit32 / Zcash Purse to send from your wallet. Gifts go straight to this address — Ziving never holds funds.'
+				text: 'Or scan the address QR / copy the UA into any shielded wallet. Gifts go straight to this address — Ziving never holds funds.'
 			}));
 
 		const donationsBox = el('section', { class: 'donations' },
@@ -718,6 +738,8 @@ async function loadCampaign(slug) {
 				donateCard),
 			donationsBox);
 
+		let donorWallet = null;
+
 		async function refreshDonateQr() {
 			const amount = String(amountInput.value || '').trim();
 			const memo = String(memoInput.value || '').trim();
@@ -726,18 +748,115 @@ async function loadCampaign(slug) {
 				amountDisplay: amount || undefined,
 				memo: memo || undefined
 			});
-			winbitSend.href = winbitSendUrl(page.address, { amount, memo });
 			const ok = await renderQr(qrCanvas, uri, { width: 200 });
 			qrWrap.hidden = !ok;
+		}
+
+		function setDonorStatus(msg, { warn = false } = {}) {
+			donorStatus.textContent = msg || '';
+			donorStatus.classList.toggle('donate-kit__status--warn', warn);
 		}
 
 		await refreshDonateQr();
 		amountInput.addEventListener('input', () => { refreshDonateQr(); });
 		memoInput.addEventListener('input', () => { refreshDonateQr(); });
 		copyAddrBtn.addEventListener('click', () => copyText(page.address, copyAddrBtn));
-		winbitPurse.addEventListener('click', () => {
-			// Prefill clipboard so Purse paste is one tap away.
-			navigator.clipboard?.writeText(page.address).catch(() => {});
+
+		donorFile.addEventListener('change', () => {
+			const name = donorFile.files?.[0]?.name || '';
+			donorPasswordWrap.hidden = !/(\.wult|\.png|\.json)$/i.test(name);
+		});
+
+		donorOpenBtn.addEventListener('click', async () => {
+			donorOpenBtn.disabled = true;
+			donorOpenBtn.textContent = 'Opening…';
+			donorResult.hidden = true;
+			cosignQrWrap.hidden = true;
+			cosignHint.hidden = true;
+			setDonorStatus('');
+			try {
+				const kit = await loadWalletKit();
+				donorWallet = await kit.openDonorWallet({
+					phrase: donorPhrase.value,
+					file: donorFile.files?.[0],
+					password: donorPassword.value || undefined
+				});
+				donorSendBtn.disabled = !donorWallet.canSend;
+				if (donorWallet.canSend) {
+					setDonorStatus(`Ready to send from ${donorWallet.address.slice(0, 18)}… — enter amount and click Donate.`);
+				} else {
+					setDonorStatus('Wallet opened (view-only). To donate on-page, load a .wult FROST share or locket — same as Secresea.', { warn: true });
+				}
+			} catch (err) {
+				donorWallet = null;
+				donorSendBtn.disabled = true;
+				if (err?.code === 'password_required') {
+					donorPasswordWrap.hidden = false;
+					setDonorStatus('Password required for this share.', { warn: true });
+				} else {
+					setDonorStatus(err.message || String(err), { warn: true });
+				}
+			} finally {
+				donorOpenBtn.disabled = false;
+				donorOpenBtn.textContent = 'Open wallet';
+			}
+		});
+
+		donorSendBtn.addEventListener('click', async () => {
+			if (!donorWallet?.canSend) return;
+			const amount = Number(amountInput.value);
+			if (!Number.isFinite(amount) || amount <= 0) {
+				setDonorStatus('Enter a ZEC amount greater than zero.', { warn: true });
+				amountInput.focus();
+				return;
+			}
+			donorSendBtn.disabled = true;
+			donorOpenBtn.disabled = true;
+			donorResult.hidden = true;
+			cosignQrWrap.hidden = true;
+			setDonorStatus('Starting donation…');
+			try {
+				const kit = await loadWalletKit();
+				const cosignerUrl = kit.getCosignerUrl?.() || 'https://winbit32.com/#cosign';
+				const out = await kit.sendDonation({
+					wallet: donorWallet,
+					toAddress: page.address,
+					amountZec: amount,
+					memo: String(memoInput.value || '').trim() || undefined,
+					onQrReady: async (qrPayload) => {
+						cosignHint.hidden = false;
+						cosignHint.innerHTML = '';
+						cosignHint.append(
+							document.createTextNode('Scan with the Winbit32 cosigner on your other device ('),
+							el('a', { href: cosignerUrl, target: '_blank', rel: 'noopener', text: 'open cosigner' }),
+							document.createTextNode(').')
+						);
+						const ok = await renderQr(cosignQrCanvas, qrPayload, { width: 220 });
+						cosignQrWrap.hidden = !ok;
+						setDonorStatus('Waiting for cosigner…');
+					},
+					onProgress: (m) => { setDonorStatus(m || 'Working…'); }
+				});
+				cosignQrWrap.hidden = true;
+				cosignHint.hidden = true;
+				setDonorStatus('');
+				donorResult.hidden = false;
+				donorResult.className = 'result-box';
+				donorResult.replaceChildren(
+					el('p', {},
+						el('strong', { text: 'Donation sent' }),
+						document.createTextNode(` — ${amount} ZEC`)),
+					el('p', { class: 'field__hint' },
+						document.createTextNode('txid '),
+						el('code', { text: out.txid }))
+				);
+			} catch (err) {
+				cosignQrWrap.hidden = true;
+				setDonorStatus(err.message || String(err), { warn: true });
+			} finally {
+				donorSendBtn.disabled = !donorWallet?.canSend;
+				donorOpenBtn.disabled = false;
+			}
 		});
 
 		if (obsLink) {

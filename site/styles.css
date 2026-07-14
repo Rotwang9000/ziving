@@ -401,6 +401,20 @@ main { max-width: 920px; margin: 0 auto; padding: 0 1.5rem 4rem; }
 	text-align: left;
 	line-height: 1.45;
 }
+.donate-kit {
+	text-align: left;
+	margin: 1rem 0 0.5rem;
+	padding-top: 0.85rem;
+	border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.donate-kit__title {
+	font-size: 0.95rem;
+	margin: 0 0 0.35rem;
+	font-weight: 600;
+}
+.donate-kit .field { margin-bottom: 0.65rem; }
+.donate-kit__status--warn { color: var(--warn, #e8a54b); }
+.donate-card__cosign { margin-top: 0.75rem; }
 .pay-card__qr-wrap[hidden] { display: none !important; }
 
 .donations { margin-top: 2rem; }
