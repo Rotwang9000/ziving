@@ -157,6 +157,8 @@ main { max-width: 920px; margin: 0 auto; padding: 0 1.5rem 4rem; }
 	cursor: pointer;
 	transition: transform 0.15s var(--ease), background 0.15s ease, border-color 0.15s ease;
 }
+/* .btn sets display, which otherwise overrides the UA [hidden] rule */
+.btn[hidden], [hidden] { display: none !important; }
 .btn:active { transform: scale(0.98); }
 .btn--primary {
 	background: linear-gradient(135deg, var(--gold), var(--gold-deep));

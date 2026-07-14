@@ -204,13 +204,14 @@ function initHome() {
 			const review = $('create-review');
 			const slug = normaliseSlug(slugInput.value) || 'your-slug';
 			const { address } = getWalletCredentials();
+			const usd = $('amountUsd').value;
 			review.hidden = false;
 			review.innerHTML = `
 				<p><strong>${($('label').value.trim() || slug)}</strong></p>
 				<p>URL: <code>${pageUrl(slug)}</code></p>
-				<p>Scanning prepaid: $${$('amountUsd').value}</p>
+				<p>Prepay scanning credit: <strong>$${usd}</strong></p>
 				<p class="field__hint">Receive: <code>${address ? `${address.slice(0, 18)}…` : '(missing)'}</code></p>
-				<p class="field__hint">You'll get an owner token once — save it. Then pay the ZEC quote to fund scanning.</p>
+				<p class="field__hint">Click <strong>Create page</strong> — you'll get a ZEC amount, pay-to address, and memo to fund the $${usd} scanning credit. The page is live on grace credit while that confirms.</p>
 			`;
 		}
 		updateCreateButton();
