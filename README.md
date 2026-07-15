@@ -75,7 +75,12 @@ The create wizard can generate or open a donation wallet without leaving ziving.
 | **Existing** | Paste a phrase / UFVK, or open `.txt`, `.wult`, locket `.png` |
 | **Manual** | Paste UFVK + unified address yourself |
 
-Campaign pages donate **on-page** via the kit's Winbit32 wallet bar (`mountWinbit32WalletBar` / `mountDonorWalletBar`): open a `.wult` / locket → balance scan → co-sign QR. Same experience as Secresea. Address QR / copy still work for any other shielded wallet.
+Campaign pages donate **on-page** via the kit's Winbit32 wallet bar (`mountWinbit32WalletBar` / `mountDonorWalletBar`), same experience as Secresea, two ways to connect:
+
+- **Seed phrase** — WebZjs derives the keys and signs the PCZT locally in the tab (kit `PhraseWalletService` via ziving's `phraseWalletAdapter`); nothing leaves the browser but the signed transaction.
+- **`.wult` share / locket PNG** — balance scan → WB32COSIGN co-sign QR with the Winbit32 cosigner on another device.
+
+Address QR / copy still work for any other shielded wallet.
 
 Scanner / PCZT / cosign relay are same-origin `/api/*` (nginx → orchard-scanner on :3555) so browsers are not blocked by CORP on `api.zcash.winbit32.com`. Rebuild after kit/WASM changes:
 

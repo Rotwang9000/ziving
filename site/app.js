@@ -673,7 +673,7 @@ async function loadCampaign(slug) {
 			el('div', { class: 'donate-card__actions' }, connectWalletBtn),
 			el('p', {
 				class: 'donate-card__hint donate-card__hint--sm',
-				text: 'Connect a .wult share (or paste share JSON) in the dialog, then enter amount and memo there.'
+				text: 'Connect with a seed phrase or a .wult vault share in the dialog, then enter amount and memo there. Phrases sign in this tab; .wult shares co-sign via your other device.'
 			}));
 
 		const donationsBox = el('section', { class: 'donations' },

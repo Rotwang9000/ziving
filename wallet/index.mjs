@@ -6,15 +6,20 @@
  *   - Phrase / plaintext: WebZjs
  *   - .wult / locket PNG: @winbit32/wallet-kit (unwrap + Orchard FROST derive)
  *
- * Donate: {@link mountWinbit32WalletBar} (Secresea-style bottom bar + co-sign
- * modal) against same-origin `/api` (nginx → orchard-scanner) + local WASM.
+ * Donate: {@link mountWinbit32WalletBar} (Secresea-style bottom bar) against
+ * same-origin `/api` (nginx → orchard-scanner) + local WASM. Donors connect
+ * with a seed phrase (WebZjs signs the PCZT in this tab) or a .wult vault
+ * share / locket (WB32COSIGN QR ceremony).
  */
 
-import { generateMnemonic, validateMnemonic } from '@scure/bip39';
+import { generateMnemonic, validateMnemonic, mnemonicToSeed } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import wasmInit, {
 	derive_usk_from_mnemonic,
 	ufvk_from_usk,
+	derive_change_unified_address,
+	pczt_sign,
+	Pczt,
 	UnifiedSpendingKey,
 	UnifiedFullViewingKey,
 	SeedFingerprint,
@@ -68,8 +73,26 @@ function credentials(ufvk, address, extra = {}) {
 	return Object.freeze({ ufvk, address, canSend, ...extra });
 }
 
+const normalisePhrase = (phrase) => String(phrase || '').trim().toLowerCase().replace(/\s+/gu, ' ');
+
+function base64ToBytes(b64) {
+	const bin = atob(b64);
+	const out = new Uint8Array(bin.length);
+	for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
+	return out;
+}
+
+function bytesToBase64(bytes) {
+	let bin = '';
+	const CHUNK = 0x8000;
+	for (let i = 0; i < bytes.length; i += CHUNK) {
+		bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+	}
+	return btoa(bin);
+}
+
 async function fromMnemonic(mnemonic, { revealPhrase = false } = {}) {
-	const normalised = String(mnemonic || '').trim().toLowerCase().replace(/\s+/gu, ' ');
+	const normalised = normalisePhrase(mnemonic);
 	if (!validateMnemonic(normalised, wordlist)) {
 		throw new Error('That does not look like a valid BIP-39 seed phrase (12 or 24 English words).');
 	}
@@ -242,8 +265,41 @@ async function computeSeedFingerprint(seed64) {
 }
 
 /**
+ * Kit `PhraseWalletAdapter`: derive UFVK/UA/change + ZIP-32 fingerprint from
+ * a BIP-39 phrase and sign PCZTs locally, all via WebZjs in this tab. The
+ * phrase itself is held only by the kit's PhraseWalletService in memory.
+ * `pczt_sign` consumes its WASM arguments, so nothing needs freeing here.
+ */
+export const phraseWalletAdapter = Object.freeze({
+	async deriveFromPhrase(phrase, accountIndex = 0) {
+		const normalised = normalisePhrase(phrase);
+		if (!validateMnemonic(normalised, wordlist)) {
+			throw new Error('That does not look like a valid BIP-39 seed phrase (12 or 24 English words).');
+		}
+		await ensureWebZjs();
+		const usk = derive_usk_from_mnemonic(NETWORK, normalised, accountIndex);
+		const ufvk = ufvk_from_usk(usk, NETWORK);
+		const changeAddress = derive_change_unified_address(usk, NETWORK);
+		const ufvkObj = usk.to_unified_full_viewing_key();
+		const unifiedAddress = ufvkObj.to_unified_address(NETWORK, 0);
+		const seedFingerprintHex = await computeSeedFingerprint(await mnemonicToSeed(normalised));
+		return { ufvk, unifiedAddress, changeAddress, seedFingerprintHex };
+	},
+	async signPczt(unsignedPcztBase64, phrase, accountIndex = 0) {
+		await ensureWebZjs();
+		const normalised = normalisePhrase(phrase);
+		const usk = derive_usk_from_mnemonic(NETWORK, normalised, accountIndex);
+		const pczt = Pczt.from_bytes(base64ToBytes(unsignedPcztBase64));
+		const seedFp = new SeedFingerprint(await mnemonicToSeed(normalised));
+		const signed = await pczt_sign(NETWORK, pczt, usk, seedFp);
+		return bytesToBase64(signed.serialize());
+	},
+});
+
+/**
  * Mount the Secresea-style Winbit32 wallet bar for on-page donations.
  * Prefills the campaign address; uses same-origin `/api` + local orchard-frost.
+ * Donors connect with a seed phrase (local sign) or a .wult share (co-sign QR).
  */
 export function mountDonorWalletBar(options = {}) {
 	const wasmBaseUrl = ORCHARD_WASM_BASE.replace(/\/$/u, '');
@@ -251,6 +307,7 @@ export function mountDonorWalletBar(options = {}) {
 		cosignerUrl: COSIGNER_APP,
 		logoUrl: options.logoUrl || '/winbit32-logo.png',
 		readShareFile,
+		phraseAdapter: phraseWalletAdapter,
 		...options,
 		deps: {
 			scannerBaseUrl: SCANNER_BASE,
