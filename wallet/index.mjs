@@ -17,6 +17,7 @@ import wasmInit, {
 	ufvk_from_usk,
 	UnifiedSpendingKey,
 	UnifiedFullViewingKey,
+	SeedFingerprint,
 } from './vendor/webzjs_keys_and_send_fixed.js';
 import {
 	unwrapVaultShare,
@@ -27,6 +28,7 @@ import {
 	deriveZcashSeedFromVaultIdentity,
 	toOrchardBundle,
 	mountWinbit32WalletBar,
+	bytesToHex,
 } from '@winbit32/wallet-kit';
 import { extractLocketShareText } from './locket-chunk.mjs';
 
@@ -228,6 +230,17 @@ export async function readShareFile(file) {
 	return (await file.text()).trim();
 }
 
+/** ZIP-32 seed fingerprint (64 hex) via WebZjs — required by PCZT /build. */
+async function computeSeedFingerprint(seed64) {
+	await ensureWebZjs();
+	const fp = new SeedFingerprint(seed64);
+	try {
+		return bytesToHex(fp.to_bytes());
+	} finally {
+		fp.free?.();
+	}
+}
+
 /**
  * Mount the Secresea-style Winbit32 wallet bar for on-page donations.
  * Prefills the campaign address; uses same-origin `/api` + local orchard-frost.
@@ -241,6 +254,8 @@ export function mountDonorWalletBar(options = {}) {
 		...options,
 		deps: {
 			scannerBaseUrl: SCANNER_BASE,
+			deriveSeedFromIdentity: deriveZcashSeedFromVaultIdentity,
+			computeSeedFingerprint,
 			config: {
 				pcztApiBaseUrl: PCZT_API_BASE,
 				relayBaseUrl: COSIGN_RELAY,
