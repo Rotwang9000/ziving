@@ -397,7 +397,24 @@ main { max-width: 920px; margin: 0 auto; padding: 0 1.5rem 4rem; }
 .donate-card__copy-row {
 	display: flex;
 	justify-content: flex-start;
-	margin-bottom: 0.85rem;
+	margin-bottom: 0.35rem;
+}
+.donate-card__sep {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin: 1rem 0 0.85rem;
+	color: var(--muted);
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+.donate-card__sep::before,
+.donate-card__sep::after {
+	content: "";
+	flex: 1;
+	height: 1px;
+	background: rgba(255, 255, 255, 0.12);
 }
 .donate-card__fields {
 	text-align: left;
@@ -414,9 +431,14 @@ main { max-width: 920px; margin: 0 auto; padding: 0 1.5rem 4rem; }
 .donate-card__hint {
 	font-size: 0.82rem;
 	color: var(--muted);
-	margin-top: 0.75rem;
+	margin-top: 0.55rem;
 	text-align: left;
 	line-height: 1.45;
+}
+.donate-card__hint--sm {
+	font-size: 0.75rem;
+	margin-top: 0.45rem;
+	text-align: center;
 }
 .donate-kit {
 	text-align: left;

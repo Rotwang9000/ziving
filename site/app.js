@@ -651,14 +651,6 @@ async function loadCampaign(slug) {
 
 		const qrCanvas = el('canvas', { class: 'donate-card__qr', id: 'donate-qr', hidden: 'true' });
 		const qrWrap = el('div', { class: 'donate-card__qr-wrap', id: 'donate-qr-wrap', hidden: 'true' }, qrCanvas);
-		const amountInput = el('input', {
-			id: 'donate-amount', type: 'number', min: '0', step: 'any',
-			placeholder: '0.1', inputmode: 'decimal'
-		});
-		const memoInput = el('input', {
-			id: 'donate-memo', type: 'text', maxlength: '512',
-			placeholder: 'optional memo', autocomplete: 'off'
-		});
 		const copyAddrBtn = el('button', {
 			class: 'btn btn--ghost btn--sm', type: 'button', id: 'copy-addr', text: 'Copy address'
 		});
@@ -672,17 +664,16 @@ async function loadCampaign(slug) {
 			qrWrap,
 			el('p', { class: 'donate-card__addr', id: 'donate-addr', text: page.address }),
 			el('div', { class: 'donate-card__copy-row' }, copyAddrBtn),
-			el('div', { class: 'donate-card__fields' },
-				el('div', { class: 'field' },
-					el('label', { for: 'donate-amount', text: 'Amount (ZEC)' }),
-					amountInput),
-				el('div', { class: 'field' },
-					el('label', { for: 'donate-memo', text: 'Memo (optional)' }),
-					memoInput)),
-			el('div', { class: 'donate-card__actions' }, connectWalletBtn),
 			el('p', {
 				class: 'donate-card__hint',
-				text: 'Use the Winbit32 bar (bottom) to open a .wult / locket and co-sign — same as Secresea. Or scan / copy the UA into any shielded wallet. Ziving never holds funds.'
+				text: 'Scan or copy this address into any shielded Zcash wallet. Add a memo with your gift — it will show under Recent gifts on the left. Ziving never holds funds.'
+			}),
+			el('div', { class: 'donate-card__sep' },
+				el('span', { text: 'or' })),
+			el('div', { class: 'donate-card__actions' }, connectWalletBtn),
+			el('p', {
+				class: 'donate-card__hint donate-card__hint--sm',
+				text: 'Connect a .wult share (or paste share JSON) in the dialog, then enter amount and memo there.'
 			}));
 
 		const donationsBox = el('section', { class: 'donations' },
@@ -703,21 +694,9 @@ async function loadCampaign(slug) {
 				campaignMain,
 				donateCard));
 
-		async function refreshDonateQr() {
-			const amount = String(amountInput.value || '').trim();
-			const memo = String(memoInput.value || '').trim();
-			const uri = zcashPayUri({
-				payTo: page.address,
-				amountDisplay: amount || undefined,
-				memo: memo || undefined
-			});
-			const ok = await renderQr(qrCanvas, uri, { width: 200 });
-			qrWrap.hidden = !ok;
-		}
-
-		await refreshDonateQr();
-		amountInput.addEventListener('input', () => { refreshDonateQr(); });
-		memoInput.addEventListener('input', () => { refreshDonateQr(); });
+		const uri = zcashPayUri({ payTo: page.address });
+		const qrOk = await renderQr(qrCanvas, uri, { width: 200 });
+		qrWrap.hidden = !qrOk;
 		copyAddrBtn.addEventListener('click', () => copyText(page.address, copyAddrBtn));
 
 		const renderDonations = (events) => {
@@ -755,8 +734,8 @@ async function loadCampaign(slug) {
 			const kit = await loadWalletKit();
 			walletBar = kit.mountDonorWalletBar({
 				defaultToAddress: page.address,
-				defaultAmountZec: amountInput.value || undefined,
-				defaultMemo: memoInput.value || undefined,
+				lockToAddress: true,
+				showSendOnConnect: true,
 				onSendComplete: () => { pollEvents().catch(() => {}); }
 			});
 			return walletBar;
@@ -766,11 +745,7 @@ async function loadCampaign(slug) {
 			connectWalletBtn.disabled = true;
 			try {
 				const bar = await ensureWalletBar();
-				bar.setSendDefaults({
-					toAddress: page.address,
-					amountZec: amountInput.value || undefined,
-					memo: memoInput.value || undefined
-				});
+				bar.setSendDefaults({ toAddress: page.address });
 				bar.open();
 			} catch (err) {
 				alert(err.message || String(err));
@@ -779,7 +754,7 @@ async function loadCampaign(slug) {
 			}
 		});
 
-		// Prefetch bar so the bottom strip appears without waiting for the button.
+		// Prefetch bar so the bottom strip is ready when they click Pay.
 		ensureWalletBar().catch((err) => {
 			console.warn('Winbit32 wallet bar failed to mount', err);
 		});
