@@ -13,7 +13,7 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="styles.css?v=20260715a" />
+	<link rel="stylesheet" href="styles.css?v=20260715b" />
 </head>
 <body data-page="home">
 	<div class="atmos" aria-hidden="true"></div>
@@ -35,52 +35,83 @@
 			<p class="brand-hero" aria-label="Ziving">
 				<span class="brand-hero__z">z</span>iving
 			</p>
-			<h1 class="hero__headline">Fundraise in private</h1>
+			<h1 class="hero__headline">Raise money for anything. Keep it private.</h1>
 			<p class="hero__lead">
-				Shielded ZEC gifts land in your wallet. Share a page, watch them arrive —
-				no accounts, no custody, no fuss.
+				Fundraising pages on shielded Zcash — like the big giving sites, with a z.
+				Gifts go straight from the giver's wallet to yours, and your page cheers
+				each one live. No accounts, no middleman holding the money, no fuss.
 			</p>
-			<p class="hero__warn" role="note">
-				We do <strong>not</strong> verify fundraisers, identities, or causes.
-				Anyone can start a page — that is intentional. Donors pay wallets directly; gift carefully.
+			<p class="hero__note" role="note">
+				<strong>Open to everyone, by design.</strong> We don't vet causes or check identities —
+				donors pay your wallet directly, so give to pages you trust.
 			</p>
 			<div class="hero__actions">
-				<button id="open-create" class="btn btn--primary" type="button">Start a page</button>
-				<a class="btn btn--ghost" href="#how">See how</a>
+				<button id="open-create" class="btn btn--primary" type="button">Start your page — it's live in a minute</button>
+				<a class="btn btn--ghost" href="#how">See how it works</a>
+			</div>
+		</section>
+
+		<section id="activity" class="activity-section" hidden>
+			<h2 class="section-title">Happening <span class="accent">now</span></h2>
+			<p class="section-lead">Real gifts and new pages, as they land on-chain.</p>
+			<div class="activity-grid">
+				<div class="activity-col">
+					<h3>💛 Latest gifts</h3>
+					<div id="activity-gifts"></div>
+				</div>
+				<div class="activity-col">
+					<h3>🌱 New pages</h3>
+					<div id="activity-pages"></div>
+				</div>
 			</div>
 		</section>
 
 		<section id="featured" class="featured-section" hidden>
-			<h2 class="section-title">On the <span class="accent">homepage</span></h2>
-			<p class="section-lead">Campaigns that booked a short featured run.</p>
+			<h2 class="section-title">In the <span class="accent">spotlight</span></h2>
+			<p class="section-lead">Pages that booked a featured run on the homepage.</p>
 			<div id="featured-list" class="featured-list"></div>
 		</section>
 
 		<section class="pitch">
-			<p class="pitch__line"><strong>No custody</strong> — donors pay your shielded address.</p>
-			<p class="pitch__line"><strong>No vetting</strong> — we never check who you are or what you raise for. That is the point.</p>
-			<p class="pitch__line"><strong>Minimal data</strong> — encrypted view key, address, optional story.</p>
-			<p class="pitch__line"><strong>On-chain billing</strong> — scanning from $0.10/day; homepage promo from $5/day.</p>
+			<h2 class="section-title">Why <span class="accent">ziving</span>?</h2>
+			<div class="usp-grid">
+				<div class="usp">
+					<span class="usp__emoji">🎁</span>
+					<strong>Gifts go straight to you</strong>
+					<span>Donors pay your shielded address wallet-to-wallet. We never hold a penny — there's nothing to freeze, skim, or lose.</span>
+				</div>
+				<div class="usp">
+					<span class="usp__emoji">🕶️</span>
+					<strong>Private for givers &amp; getters</strong>
+					<span>Shielded ZEC keeps amounts and memos between you and your donors. No accounts, no emails, no tracking.</span>
+				</div>
+				<div class="usp">
+					<span class="usp__emoji">📺</span>
+					<strong>Live everywhere</strong>
+					<span>Gifts pop up on your page and in a free OBS stream overlay the moment they confirm. Memos become messages of support.</span>
+				</div>
+				<div class="usp">
+					<span class="usp__emoji">🪙</span>
+					<strong>Pennies, not percentages</strong>
+					<span>No cut of your donations. You prepay scanning at $0.10/day in ZEC — a $5 top-up runs your page for ~50 days.</span>
+				</div>
+			</div>
 		</section>
 
 		<section id="how" class="how">
-			<h2 class="section-title">How it <span class="accent">works</span></h2>
+			<h2 class="section-title">Up and running in <span class="accent">three steps</span></h2>
 			<ol class="how-steps">
 				<li>
-					<strong>Make a donation wallet</strong>
-					<span>Dedicated vault in Winbit32 — keep it separate from spending money.</span>
+					<strong>Get a donation wallet</strong>
+					<span>The wizard can create one right in your browser (save the seed phrase!), or open a phrase, view key, or Winbit32 vault you already have.</span>
 				</li>
 				<li>
-					<strong>Export UFVK + address</strong>
-					<span>Read-only view key and unified address from the receive wizard.</span>
+					<strong>Tell your story</strong>
+					<span>Pick your page address, add a story and goal, prepay a little scanning credit in ZEC — your page is live immediately on grace credit.</span>
 				</li>
 				<li>
-					<strong>Walk the wizard</strong>
-					<span>Story, wallet, scanning plan — then pay a small ZEC quote.</span>
-				</li>
-				<li>
-					<strong>Share &amp; optionally promote</strong>
-					<span>Send <code>ziving.org/p/your-slug</code>; buy homepage placement when you want eyes.</span>
+					<strong>Share &amp; celebrate</strong>
+					<span>Send <code>ziving.org/p/your-slug</code> anywhere. Gifts and memos appear live on the page and your stream — book a homepage spotlight when you want more eyes.</span>
 				</li>
 			</ol>
 		</section>
@@ -230,6 +261,6 @@
 		</div>
 	</dialog>
 
-	<script src="app.js?v=20260715a" type="module"></script>
+	<script src="app.js?v=20260715b" type="module"></script>
 </body>
 </html>

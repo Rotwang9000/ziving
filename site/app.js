@@ -266,6 +266,57 @@ async function loadFeatured() {
 	}
 }
 
+function timeAgo(iso) {
+	const ms = Date.now() - Date.parse(iso);
+	if (!Number.isFinite(ms) || ms < 0) return '';
+	const mins = Math.floor(ms / 60_000);
+	if (mins < 1) return 'just now';
+	if (mins < 60) return `${mins}m ago`;
+	const hours = Math.floor(mins / 60);
+	if (hours < 24) return `${hours}h ago`;
+	const days = Math.floor(hours / 24);
+	return days === 1 ? 'yesterday' : `${days}d ago`;
+}
+
+/**
+ * "Happening now" — latest confirmed gifts + newest pages from
+ * /v1/ziving/activity. Degrades silently (section stays hidden) while the
+ * gateway predates the endpoint or when there is nothing to show yet.
+ */
+async function loadActivity() {
+	const section = $('activity');
+	const giftsBox = $('activity-gifts');
+	const pagesBox = $('activity-pages');
+	if (!section || !giftsBox || !pagesBox) return;
+	try {
+		const out = await api('/v1/ziving/activity');
+		const gifts = out.donations || [];
+		const pages = out.pages || [];
+		if (!gifts.length && !pages.length) {
+			section.hidden = true;
+			return;
+		}
+		giftsBox.replaceChildren(...(gifts.length
+			? gifts.map((g) => el('a', { class: 'gift-row', href: g.pageUrl || pageUrl(g.slug) },
+				el('span', { class: 'gift-row__amt', text: fmtZec(g.amountZec) }),
+				el('span', { class: 'gift-row__what' },
+					g.memo ? el('span', { text: `“${g.memo}” ` }) : null,
+					el('span', { class: 'to', text: `→ ${g.label || g.slug}` })),
+				el('span', { class: 'gift-row__when', text: timeAgo(g.at) })))
+			: [el('p', { class: 'activity-empty', text: 'The next gift could be yours to receive…' })]));
+		pagesBox.replaceChildren(...(pages.length
+			? pages.map((p) => el('a', { class: 'page-card', href: p.urls?.page || pageUrl(p.slug) },
+				el('p', { class: 'page-card__title', text: p.label || p.slug }),
+				el('p', { class: 'page-card__meta' },
+					el('span', { class: 'raised', text: fmtZec(p.raised?.zec) }),
+					document.createTextNode(` raised · ${p.raised?.donationCount ?? 0} gift${(p.raised?.donationCount ?? 0) === 1 ? '' : 's'}`))))
+			: [el('p', { class: 'activity-empty', text: 'Start the first page of the day!' })]));
+		section.hidden = false;
+	} catch {
+		section.hidden = true;
+	}
+}
+
 function initHome() {
 	const dialog = $('create-dialog');
 	const openBtn = $('open-create');
@@ -279,6 +330,8 @@ function initHome() {
 	let pageCreated = false;
 
 	loadFeatured();
+	loadActivity();
+	setInterval(loadActivity, 30_000);
 
 	function setWalletMode(mode) {
 		walletMode = mode;
