@@ -38,7 +38,7 @@ import {
 import { extractLocketShareText } from './locket-chunk.mjs';
 
 const NETWORK = 'main';
-const WASM_URL = new URL('./webzjs_keys_and_send_bg.wasm', import.meta.url).href;
+const WASM_URL = new URL('./webzjs_keys_and_send_bg.wasm?v=nu62', import.meta.url).href;
 const ORCHARD_WASM_BASE = new URL('./orchard-frost', import.meta.url).href;
 
 /** Same-origin scanner/PCZT/relay (nginx proxies /api → orchard-scanner). */
