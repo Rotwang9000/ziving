@@ -685,6 +685,16 @@ dialog::backdrop {
 }
 .field textarea { min-height: 100px; resize: vertical; }
 .field__hint { font-size: 0.78rem; color: var(--muted); margin-top: 0.3rem; }
+.field__hint--warn {
+	color: #f0d878;
+	background: rgba(201, 162, 39, 0.1);
+	border: 1px solid rgba(201, 162, 39, 0.28);
+	border-radius: 0.45rem;
+	padding: 0.65rem 0.75rem;
+	margin: 0 0 0.85rem;
+	line-height: 1.45;
+}
+.field__hint--warn strong { color: #fde68a; }
 
 .wallet-links {
 	display: flex;
@@ -747,6 +757,12 @@ dialog::backdrop {
 	font-size: 0.85rem;
 	color: var(--muted);
 }
+.create-success__token--urgent {
+	padding: 0.85rem 0.95rem;
+	border-radius: var(--radius);
+	background: rgba(201, 162, 39, 0.08);
+	border: 1px solid rgba(201, 162, 39, 0.3);
+}
 .create-success__token summary {
 	cursor: pointer;
 	color: var(--text);
@@ -758,6 +774,11 @@ dialog::backdrop {
 	word-break: break-all;
 	font-family: var(--mono);
 	font-size: 0.78rem;
+	padding: 0.55rem 0.65rem;
+	background: rgba(0, 0, 0, 0.25);
+	border-radius: 0.35rem;
+	color: var(--text);
+	user-select: all;
 }
 
 .pay-card {

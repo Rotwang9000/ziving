@@ -457,12 +457,16 @@ function initHome() {
 			const slug = normaliseSlug(slugInput.value) || 'your-slug';
 			const { address } = getWalletCredentials();
 			const usd = $('amountUsd').value;
+			const manualWarn = walletMode === 'manual'
+				? `<p class="field__hint field__hint--warn" role="note"><strong>Manual wallet:</strong> after create you get a one-time <em>owner token</em> — copy it immediately. We only store a hash; it will not be shown again.</p>`
+				: '';
 			review.hidden = false;
 			review.innerHTML = `
 				<p><strong>${($('label').value.trim() || slug)}</strong></p>
 				<p>URL: <code>${pageUrl(slug)}</code></p>
 				<p>Prepay scanning credit: <strong>$${usd}</strong></p>
 				<p class="field__hint">Receive: <code>${address ? `${address.slice(0, 18)}…` : '(missing)'}</code></p>
+				${manualWarn}
 				<p class="field__hint">Click <strong>Create page</strong> — you'll get a ZEC amount, pay-to address, and memo to fund the $${usd} scanning credit. The page is live on grace credit while that confirms.</p>
 			`;
 		}
@@ -694,22 +698,43 @@ function initHome() {
 			if (result) {
 				result.hidden = false;
 				result.className = 'create-success';
-				const tokenBox = el('details', { class: 'create-success__token' },
-					el('summary', { text: 'Owner token (saved in this browser — expand to copy)' }),
-					el('p', { class: 'field__hint', text: 'Needed only if you clear site data. You can also unlock Manage with the same wallet UFVK.' }),
-					el('code', { text: out.ownerToken || '' }));
+				const token = out.ownerToken || '';
+				const isManual = walletMode === 'manual';
+				const tokenCode = el('code', { id: 'owner-token-value', text: token });
+				const copyTokenBtn = el('button', {
+					type: 'button',
+					class: 'btn btn--ghost btn--sm',
+					text: 'Copy owner token',
+				});
+				copyTokenBtn.addEventListener('click', () => copyText(token, copyTokenBtn));
+
+				const tokenBox = isManual
+					? el('div', { class: 'create-success__token create-success__token--urgent', role: 'note' },
+						el('p', { class: 'field__hint field__hint--warn', html:
+							'<strong>Save this owner token now — shown only once.</strong> '
+							+ 'We only keep a hash. Without it (and without the UFVK you pasted), you cannot manage this page.' }),
+						tokenCode,
+						el('div', { class: 'form-actions', style: 'justify-content:flex-start;margin-top:0.5rem;' }, copyTokenBtn))
+					: el('details', { class: 'create-success__token', open: '' },
+						el('summary', { text: 'Owner token — copy and save (shown only once)' }),
+						el('p', { class: 'field__hint', text: 'We only keep a hash. Needed if you clear site data; you can also unlock Manage with the wallet UFVK / seed.' }),
+						tokenCode,
+						el('div', { class: 'form-actions', style: 'justify-content:flex-start;margin-top:0.5rem;' }, copyTokenBtn));
+
 				const actions = el('div', { class: 'create-success__actions' },
 					el('a', { class: 'btn btn--primary', href: url, text: 'View page' }),
 					el('a', { class: 'btn btn--ghost', href: `/manage.html?slug=${encodeURIComponent(slug)}`, text: 'Manage' }),
 					el('a', { class: 'btn btn--ghost', href: overlayUrl(slug), text: 'Stream overlay' }));
 				const payHost = el('div');
-				result.replaceChildren(
+				const kids = [
 					el('p', { class: 'create-success__lede' },
 						el('strong', { text: 'Page is live' }),
 						document.createTextNode(' on grace credit — share it while you fund scanning.')),
-					actions,
-					tokenBox,
-					payHost);
+				];
+				// Manual: token first so they cannot miss the one-time secret.
+				if (isManual) kids.push(tokenBox, actions, payHost);
+				else kids.push(actions, tokenBox, payHost);
+				result.replaceChildren(...kids);
 				renderPaymentCard(payHost, out.payment, {
 					title: 'Fund scanning',
 					graceNote: out.graceNote || ''
