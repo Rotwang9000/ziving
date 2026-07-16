@@ -479,6 +479,10 @@ main { max-width: 920px; margin: 0 auto; padding: 0 1.5rem 4rem; }
 .donation-row__amt { color: var(--gold); font-weight: 700; white-space: nowrap; }
 .donation-row__memo { color: var(--text); flex: 1; }
 .donation-row__meta { color: var(--muted); font-size: 0.78rem; white-space: nowrap; }
+/* Unconfirmed gift: shown immediately, muted + italic until it confirms. */
+.donation-row--pending { font-style: italic; opacity: 0.65; }
+.donation-row--pending .donation-row__amt { color: var(--muted); }
+.donation-row--pending .donation-row__meta { color: var(--gold); opacity: 0.8; }
 
 .status-pill {
 	display: inline-block;

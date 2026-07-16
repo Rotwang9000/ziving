@@ -35,6 +35,13 @@
 		animation: slideIn 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 	}
 	.alert.leaving { animation: slideOut 0.4s ease-in forwards; }
+	.alert.pending {
+		border-color: rgba(148, 163, 184, 0.45);
+		background: linear-gradient(135deg, rgba(20, 18, 38, 0.88), rgba(38, 28, 58, 0.88));
+	}
+	.alert.pending .amount { color: #cbd5e1; }
+	.alert.pending .state { font-style: italic; }
+	.alert.confirmed .state { color: #6ee7b7; }
 	.alert .head {
 		display: flex;
 		align-items: baseline;
@@ -91,7 +98,9 @@ const params = new URLSearchParams(location.search);
 const overlay = params.get('overlay') || params.get('id');
 const slug = params.get('slug');
 const api = (params.get('api') || 'https://mcp.winbit32.com').replace(/\/$/u, '');
-const show = params.get('show') === 'seen' ? 'seen' : 'confirmed';
+// show=both (default): pop once when a gift is first seen (pending), again
+// when it confirms. show=confirmed / show=seen fire a single pop each.
+const show = ['confirmed', 'seen', 'both'].includes(params.get('show')) ? params.get('show') : 'both';
 const holdSec = Math.max(4, Math.min(120, Number(params.get('hold')) || 12));
 const stage = document.getElementById('stage');
 const status = document.getElementById('status');
@@ -102,8 +111,15 @@ if (!overlay && !slug) {
 }
 
 const storageKey = slug ? `ziving:cursor:${slug}` : `ziving:cursor:${overlay}`;
+// Highest event id we've processed. New gifts are id > cursor; we poll from
+// below any still-pending gift (see pollFrom) so we can re-see it confirm,
+// but never replay history below the cursor on a fresh load.
 let cursor = Number(localStorage.getItem(storageKey) || 0) || 0;
 let bootstrapped = cursor > 0;
+// Last status we fired an alert for, per event id, plus the set of ids
+// still awaiting confirmation (kept in memory for this session).
+const announced = new Map();
+const pending = new Set();
 const queue = [];
 let draining = false;
 
@@ -118,16 +134,18 @@ function fmtZec(n) {
 	return `${v < 0.01 ? v.toFixed(4) : v.toFixed(3)} ZEC`;
 }
 
-function renderAlert(ev) {
+function renderAlert(ev, kind) {
+	const seen = kind === 'seen';
 	const card = document.createElement('div');
-	card.className = 'alert';
+	card.className = seen ? 'alert pending' : 'alert confirmed';
 	const head = document.createElement('div');
 	head.className = 'head';
 	const amt = document.createElement('div');
 	amt.className = 'amount';
 	amt.textContent = fmtZec(ev.amountZec);
 	const meta = document.createElement('div');
-	meta.innerHTML = `<div class="brand">ziving</div><div class="state">${ev.status}</div>`;
+	const stateText = seen ? `pending · ${ev.confirmations || 0} conf` : 'confirmed ✓';
+	meta.innerHTML = `<div class="brand">ziving</div><div class="state">${stateText}</div>`;
 	head.append(amt, meta);
 	card.append(head);
 	if (ev.memo) {
@@ -148,35 +166,61 @@ async function drain() {
 	if (draining) return;
 	draining = true;
 	while (queue.length) {
-		renderAlert(queue.shift());
+		const { ev, kind } = queue.shift();
+		renderAlert(ev, kind);
 		await new Promise((r) => setTimeout(r, 350));
 	}
 	draining = false;
 }
 
+const firesOnSeen = show === 'seen' || show === 'both';
+const firesOnConfirmed = show === 'confirmed' || show === 'both';
+// Poll from just below the oldest still-pending gift so we re-see it when it
+// confirms; otherwise from the terminal watermark.
+function pollFrom() {
+	return pending.size ? Math.min(...pending) - 1 : cursor;
+}
+
 async function poll() {
 	try {
-		const res = await fetch(eventsUrl(cursor), { cache: 'no-store' });
+		const res = await fetch(eventsUrl(pollFrom()), { cache: 'no-store' });
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const data = await res.json();
-		let events = data.events || [];
+		const events = data.events || [];
 		if (!bootstrapped) {
+			// First load: don't replay history, but remember it so a gift that
+			// is still pending now can still pop when it later confirms.
 			bootstrapped = true;
-			if (events.length) cursor = events[events.length - 1].id;
+			for (const ev of events) {
+				announced.set(ev.id, ev.status);
+				cursor = Math.max(cursor, ev.id);
+				if (ev.status !== 'confirmed') pending.add(ev.id);
+			}
 			localStorage.setItem(storageKey, String(cursor));
 			status.textContent = `Ready — ${events.length} historical skipped`;
 			return;
 		}
-		events = events.filter((e) => e.status === show || show === 'seen');
+		let queued = 0;
 		for (const ev of events) {
-			cursor = Math.max(cursor, ev.id);
-			queue.push(ev);
+			const prev = announced.get(ev.id);
+			if (prev === undefined) {
+				announced.set(ev.id, ev.status);
+				cursor = Math.max(cursor, ev.id);
+				if (ev.status !== 'confirmed') {
+					pending.add(ev.id); // watch for its confirmation regardless of mode
+					if (firesOnSeen) { queue.push({ ev, kind: 'seen' }); queued++; }
+				} else if (firesOnConfirmed) {
+					queue.push({ ev, kind: 'confirmed' }); queued++;
+				}
+			} else if (prev !== 'confirmed' && ev.status === 'confirmed') {
+				announced.set(ev.id, 'confirmed');
+				pending.delete(ev.id);
+				if (firesOnConfirmed) { queue.push({ ev, kind: 'confirmed' }); queued++; }
+			}
 		}
-		if (events.length) {
-			localStorage.setItem(storageKey, String(cursor));
-			drain();
-		}
-		status.textContent = `Live · cursor ${cursor}`;
+		if (queued) drain();
+		localStorage.setItem(storageKey, String(cursor));
+		status.textContent = `Live · cursor ${cursor}${pending.size ? ` · ${pending.size} pending` : ''}`;
 	} catch (err) {
 		status.textContent = `Poll error: ${err.message}`;
 	}

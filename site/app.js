@@ -756,21 +756,29 @@ async function loadCampaign(slug) {
 			const list = $('donation-list');
 			if (!list) return;
 			if (!events.length) {
-				list.replaceChildren(el('p', { class: 'empty-state', text: 'No confirmed gifts yet — be the first!' }));
+				list.replaceChildren(el('p', { class: 'empty-state', text: 'No gifts yet — be the first!' }));
 				return;
 			}
-			const rows = [...events].reverse().map((ev) =>
-				el('div', { class: 'donation-row' },
+			const rows = [...events].reverse().map((ev) => {
+				const pending = ev.status !== 'confirmed';
+				const meta = pending
+					? `pending · ${ev.confirmations || 0} conf`
+					: 'confirmed';
+				return el('div', { class: pending ? 'donation-row donation-row--pending' : 'donation-row' },
 					el('span', { class: 'donation-row__amt', text: fmtZec(ev.amountZec) }),
 					el('span', { class: 'donation-row__memo', text: ev.memo || '—' }),
-					el('span', { class: 'donation-row__meta', text: ev.status })));
+					el('span', { class: 'donation-row__meta', text: meta }));
+			});
 			list.replaceChildren(...rows);
 		};
 
 		const pollEvents = async () => {
 			try {
 				const full = await api(`/v1/ziving/page/${encodeURIComponent(slug)}/events?sinceId=0`);
-				renderDonations((full.events || []).filter((e) => e.status === 'confirmed'));
+				// Show unconfirmed (seen) gifts too — styled pending/italic — for
+				// an instant "it landed" vibe. The raised total below stays
+				// confirmed-only (server-computed) so the headline can't retreat.
+				renderDonations(full.events || []);
 				const fresh = await api(`/v1/ziving/page/${encodeURIComponent(slug)}`);
 				const raisedEl = root.querySelector('.progress__raised');
 				if (raisedEl) raisedEl.textContent = fmtZec(fresh.raised.zec);
