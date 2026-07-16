@@ -214,6 +214,74 @@ async function loadWalletKit() {
 	return walletKit;
 }
 
+/** Shared Winbit32 wallet bar — one instance per tab; strip appears only when connected. */
+let siteWalletBar = null;
+let siteWalletBarOpts = {};
+
+async function ensureSiteWalletBar(extra = {}) {
+	siteWalletBarOpts = { ...siteWalletBarOpts, ...extra };
+	if (siteWalletBar) {
+		if (extra.defaultToAddress) {
+			siteWalletBar.setSendDefaults({ toAddress: extra.defaultToAddress });
+		}
+		return siteWalletBar;
+	}
+	const kit = await loadWalletKit();
+	const { onConnected, onDisconnected, onSendComplete, ...mountOpts } = siteWalletBarOpts;
+	siteWalletBar = kit.mountDonorWalletBar({
+		showSendOnConnect: false,
+		...mountOpts,
+		onConnected: (wallet) => {
+			updateHeaderWalletUi(wallet);
+			if (page === 'manage' && wallet?.ufvk && $('m-wallet-phrase') && !$('m-wallet-phrase').value.trim()) {
+				$('m-wallet-phrase').value = wallet.ufvk;
+			}
+			onConnected?.(wallet);
+		},
+		onDisconnected: () => {
+			updateHeaderWalletUi(null);
+			onDisconnected?.();
+		},
+		onSendComplete: (txid) => onSendComplete?.(txid),
+	});
+	return siteWalletBar;
+}
+
+function truncateAddr(addr, head = 8, tail = 4) {
+	if (!addr || addr.length <= head + tail + 1) return addr || '';
+	return `${addr.slice(0, head)}…${addr.slice(-tail)}`;
+}
+
+function updateHeaderWalletUi(wallet) {
+	const btn = $('header-connect');
+	if (!btn) return;
+	if (wallet?.unifiedAddress) {
+		btn.textContent = truncateAddr(wallet.unifiedAddress);
+		btn.title = 'Wallet connected — open wallet';
+		btn.classList.add('is-connected');
+	} else {
+		btn.textContent = 'Connect';
+		btn.title = 'Connect your donation wallet';
+		btn.classList.remove('is-connected');
+	}
+}
+
+function initHeaderWallet() {
+	const btn = $('header-connect');
+	if (!btn) return;
+	btn.addEventListener('click', async () => {
+		btn.disabled = true;
+		try {
+			const bar = await ensureSiteWalletBar();
+			bar.open();
+		} catch (err) {
+			alert(err.message || String(err));
+		} finally {
+			btn.disabled = false;
+		}
+	});
+}
+
 function getWalletCredentials() {
 	const mode = document.querySelector('.wallet-mode.is-active')?.dataset.walletMode || 'create';
 	if (mode === 'manual') {
@@ -689,6 +757,14 @@ async function loadCampaign(slug) {
 		const page = await api(`/v1/ziving/page/${encodeURIComponent(slug)}`);
 		document.title = `${page.label || slug} — Ziving`;
 
+		siteWalletBarOpts = {
+			...siteWalletBarOpts,
+			defaultToAddress: page.address,
+			lockToAddress: true,
+			showSendOnConnect: true,
+			onSendComplete: () => { pollEvents().catch(() => {}); }
+		};
+
 		const pct = page.raised?.percentOfGoal;
 		const progress = page.goalZec != null
 			? el('div', { class: 'progress' },
@@ -708,26 +784,26 @@ async function loadCampaign(slug) {
 			class: 'btn btn--ghost btn--sm', type: 'button', id: 'copy-addr', text: 'Copy address'
 		});
 		const connectWalletBtn = el('button', {
-			type: 'button', class: 'btn btn--primary', id: 'donate-connect',
-			text: 'Send Privately from your browser'
+			type: 'button', class: 'btn btn--ghost btn--sm', id: 'donate-connect',
+			text: 'Pay in browser'
 		});
 
 		const donateCard = el('aside', { class: 'donate-card' },
 			el('h3', { text: 'Donate shielded ZEC' }),
+			el('p', {
+				class: 'donate-card__hint',
+				text: 'Use your own Zcash wallet — scan or copy the address below. Add a memo so your gift shows in Recent gifts.'
+			}),
 			qrWrap,
 			el('p', { class: 'donate-card__addr', id: 'donate-addr', text: page.address }),
 			el('div', { class: 'donate-card__copy-row' }, copyAddrBtn),
 			el('p', {
-				class: 'donate-card__hint',
-				text: 'Scan or copy this address into any shielded Zcash wallet. Add a memo with your gift — it will show under Recent gifts on the left. Ziving never holds funds.'
+				class: 'donate-card__hint donate-card__hint--sm',
+				text: 'Ziving never holds funds — gifts go wallet-to-wallet.'
 			}),
 			el('div', { class: 'donate-card__sep' },
 				el('span', { text: 'or' })),
-			el('div', { class: 'donate-card__actions' }, connectWalletBtn),
-			el('p', {
-				class: 'donate-card__hint donate-card__hint--sm',
-				text: 'Connect with a seed phrase or a .wult vault share in the dialog, then enter amount and memo there. Phrases sign in this tab; .wult shares co-sign via your other device.'
-			}));
+			el('div', { class: 'donate-card__actions' }, connectWalletBtn));
 
 		const donationsBox = el('section', { class: 'donations' },
 			el('h2', { class: 'section-title', html: 'Recent <span class="accent">gifts</span>' }),
@@ -789,23 +865,10 @@ async function loadCampaign(slug) {
 			} catch { /* silent poll */ }
 		};
 
-		let walletBar = null;
-		async function ensureWalletBar() {
-			if (walletBar) return walletBar;
-			const kit = await loadWalletKit();
-			walletBar = kit.mountDonorWalletBar({
-				defaultToAddress: page.address,
-				lockToAddress: true,
-				showSendOnConnect: true,
-				onSendComplete: () => { pollEvents().catch(() => {}); }
-			});
-			return walletBar;
-		}
-
 		connectWalletBtn.addEventListener('click', async () => {
 			connectWalletBtn.disabled = true;
 			try {
-				const bar = await ensureWalletBar();
+				const bar = await ensureSiteWalletBar();
 				bar.setSendDefaults({ toAddress: page.address });
 				bar.open();
 			} catch (err) {
@@ -813,11 +876,6 @@ async function loadCampaign(slug) {
 			} finally {
 				connectWalletBtn.disabled = false;
 			}
-		});
-
-		// Prefetch bar so the bottom strip is ready when they click Pay.
-		ensureWalletBar().catch((err) => {
-			console.warn('Winbit32 wallet bar failed to mount', err);
 		});
 
 		if (obsLink) {
@@ -1071,6 +1129,7 @@ function initManage() {
 // ── Boot ────────────────────────────────────────────────────────────
 
 const page = document.body.dataset.page;
+initHeaderWallet();
 if (page === 'home') initHome();
 if (page === 'campaign') {
 	const slug = resolveCampaignSlug();
