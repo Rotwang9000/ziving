@@ -709,7 +709,7 @@ async function loadCampaign(slug) {
 		});
 		const connectWalletBtn = el('button', {
 			type: 'button', class: 'btn btn--primary', id: 'donate-connect',
-			text: 'Pay with Winbit32'
+			text: 'Send Privately from your browser'
 		});
 
 		const donateCard = el('aside', { class: 'donate-card' },
