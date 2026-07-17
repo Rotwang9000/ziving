@@ -13,7 +13,7 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="styles.css?v=20260717d" />
+	<link rel="stylesheet" href="styles.css?v=20260717e" />
 </head>
 <body data-page="home">
 	<div class="atmos" aria-hidden="true"></div>
@@ -157,7 +157,7 @@
 				</div>
 				<div class="field">
 					<label for="slug">Page URL</label>
-					<input id="slug" name="slug" pattern="[a-z0-9-]{3,48}" placeholder="alice-marathon" autocomplete="off" />
+					<input id="slug" name="slug" pattern="[a-z0-9-]{5,48}" minlength="5" placeholder="alice-marathon" autocomplete="off" />
 					<p class="field__hint">ziving.org/p/<strong id="slug-preview">your-slug</strong></p>
 				</div>
 					<div class="field">
@@ -266,6 +266,6 @@
 		</div>
 	</dialog>
 
-	<script src="app.js?v=20260717d" type="module"></script>
+	<script src="app.js?v=20260717e" type="module"></script>
 </body>
 </html>

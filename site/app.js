@@ -513,18 +513,26 @@ function initHome() {
 			const slug = normaliseSlug(slugInput.value) || 'your-slug';
 			const { address } = getWalletCredentials();
 			const usd = $('amountUsd').value;
-			const manualWarn = walletMode === 'manual'
-				? `<p class="field__hint field__hint--warn" role="note"><strong>Manual wallet:</strong> after create you get a one-time <em>owner token</em> — copy it immediately. We only store a hash; it will not be shown again.</p>`
-				: '';
 			review.hidden = false;
-			review.innerHTML = `
-				<p><strong>${($('label').value.trim() || slug)}</strong></p>
-				<p>URL: <code>${pageUrl(slug)}</code></p>
-				<p>Prepay scanning credit: <strong>$${usd}</strong></p>
-				<p class="field__hint">Receive: <code>${address ? `${address.slice(0, 18)}…` : '(missing)'}</code></p>
-				${manualWarn}
-				<p class="field__hint">Click <strong>Create page</strong> — you'll get a ZEC amount, pay-to address, and memo to fund the $${usd} scanning credit. The page is live on grace credit while that confirms.</p>
-			`;
+			// Built with text nodes — the label is user input and must never
+			// reach innerHTML.
+			review.replaceChildren(...[
+				el('p', {}, el('strong', { text: $('label').value.trim() || slug })),
+				el('p', { text: 'URL: ' }, el('code', { text: pageUrl(slug) })),
+				el('p', { text: 'Prepay scanning credit: ' }, el('strong', { text: `$${usd}` })),
+				el('p', { class: 'field__hint', text: 'Receive: ' },
+					el('code', { text: address ? `${address.slice(0, 18)}…` : '(missing)' })),
+				walletMode === 'manual'
+					? el('p', { class: 'field__hint field__hint--warn', role: 'note' },
+						el('strong', { text: 'Manual wallet: ' }),
+						document.createTextNode('after create you get a one-time owner token — copy it immediately. We only store a hash; it will not be shown again.'))
+					: null,
+				el('p', { class: 'field__hint' },
+					document.createTextNode('Click '),
+					el('strong', { text: 'Create page' }),
+					document.createTextNode(` — you'll get a ZEC amount, pay-to address, and memo to fund the $${usd} scanning credit. The page is live on grace credit while that confirms.`))
+			// replaceChildren coerces null to a literal "null" text node — filter it.
+			].filter((kid) => kid != null));
 		}
 		updateCreateButton();
 		return true;
@@ -533,7 +541,7 @@ function initHome() {
 	function validateStep(n, { silent = false } = {}) {
 		if (n === 1) {
 			const slug = normaliseSlug(slugInput.value);
-			if (slug.length < 3) {
+			if (slug.length < 5) {
 				if (!silent) slugInput.focus();
 				return false;
 			}
