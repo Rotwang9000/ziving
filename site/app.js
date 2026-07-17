@@ -32,9 +32,13 @@ const overlayUrl = (slug) => `${ZIVING_ORIGIN}/overlay?slug=${encodeURIComponent
 const eventsApiUrl = (slug) => `${API_BASE}/v1/ziving/page/${encodeURIComponent(slug)}/events?sinceId=0`;
 
 async function api(path, opts = {}) {
+	// Merge headers LAST — spreading opts after headers let x-overlay-token
+	// calls clobber the whole headers object, dropping content-type, so
+	// Fastify ignored the JSON body (a $5 top-up fell back to the $2 minimum).
+	const { headers, ...rest } = opts;
 	const res = await fetch(`${API_BASE}${path}`, {
-		headers: { 'content-type': 'application/json', ...(opts.headers || {}) },
-		...opts
+		...rest,
+		headers: { 'content-type': 'application/json', ...(headers || {}) }
 	});
 	const body = await res.json().catch(() => ({}));
 	if (!res.ok) {
@@ -165,9 +169,27 @@ function renderPaymentCard(root, payment, {
 	copyMemoBtn.addEventListener('click', () => copyText(memo, copyMemoBtn));
 	copyAmtBtn.addEventListener('click', () => copyText(amount, copyAmtBtn));
 
+	// Pay straight from the winbit32 wallet bar — any connected wallet works,
+	// crediting is by memo, so a payer needn't be the page's owner wallet.
+	const payWalletBtn = el('button', {
+		type: 'button', class: 'btn btn--primary btn--sm', text: 'Pay with winbit32'
+	});
+	payWalletBtn.addEventListener('click', async () => {
+		payWalletBtn.disabled = true;
+		try {
+			const bar = await ensureSiteWalletBar();
+			bar.setSendDefaults({ toAddress: payTo, amountZec: amount, memo });
+			bar.open();
+		} catch (err) {
+			alert(err.message || String(err));
+		} finally {
+			payWalletBtn.disabled = false;
+		}
+	});
+
 	root.hidden = false;
 	root.className = 'pay-card';
-	root.replaceChildren(
+	root.replaceChildren(...[
 		el('h3', { class: 'pay-card__title', text: title }),
 		el('p', { class: 'pay-card__amount' },
 			el('span', { class: 'pay-card__amount-val', text: amount ? `${amount} ZEC` : 'ZEC' }),
@@ -190,9 +212,13 @@ function renderPaymentCard(root, payment, {
 				payment?.expiresAt
 					? el('p', { class: 'field__hint', text: `Quote expires ${new Date(payment.expiresAt).toLocaleString()}. Credit after ${payment?.confirmations?.required ?? 8} confirmations.` })
 					: null)),
+		el('div', { class: 'form-actions', style: 'justify-content:flex-start;align-items:center;gap:0.75rem;margin-top:0.75rem;flex-wrap:wrap;' },
+			payWalletBtn,
+			el('span', { class: 'field__hint', style: 'margin:0;', text: 'exact amount + memo prefilled — or scan the QR with any wallet' })),
 		graceNote ? el('p', { class: 'pay-card__note', text: graceNote }) : null,
 		extraLinks
-	);
+	// replaceChildren coerces null to a literal "null" text node — filter it.
+	].filter((kid) => kid != null));
 	renderQr(qrCanvas, uri, { width: 200 }).then((ok) => {
 		qrWrap.hidden = !ok;
 		qrFallback.hidden = ok;
@@ -220,6 +246,24 @@ async function loadWalletKit() {
 let siteWalletBar = null;
 let siteWalletBarOpts = {};
 
+/**
+ * Best-effort ziving wallet login on connect: stashes the 24h session token
+ * so /manage unlocks without re-connecting. Silent — most connects are
+ * donors whose wallets own no pages (the gateway 404s, which is fine). The
+ * wallet bar already sends the UFVK to winbit32 infra to scan the balance,
+ * so this adds no new exposure.
+ */
+async function primeWalletSession(wallet) {
+	if (!wallet?.ufvk) return;
+	try {
+		const login = await api('/v1/ziving/wallet/login', {
+			method: 'POST',
+			body: JSON.stringify({ ufvk: wallet.ufvk })
+		});
+		sessionStorage.setItem('ziving.walletSession', JSON.stringify(login));
+	} catch { /* not an owner wallet, or offline — ignore */ }
+}
+
 async function ensureSiteWalletBar(extra = {}) {
 	siteWalletBarOpts = { ...siteWalletBarOpts, ...extra };
 	if (siteWalletBar) {
@@ -229,19 +273,25 @@ async function ensureSiteWalletBar(extra = {}) {
 		return siteWalletBar;
 	}
 	const kit = await loadWalletKit();
-	const { onConnected, onDisconnected, onSendComplete, ...mountOpts } = siteWalletBarOpts;
+	// Callbacks read siteWalletBarOpts at fire time, not mount time, so a page
+	// can (re)register handlers after the bar exists — the header Connect and
+	// the manage-page Connect share this one bar.
+	const { onConnected: _c, onDisconnected: _d, onSendComplete: _s, ...mountOpts } = siteWalletBarOpts;
 	siteWalletBar = kit.mountDonorWalletBar({
-		showSendOnConnect: false,
 		...mountOpts,
 		onConnected: (wallet) => {
 			updateHeaderWalletUi(wallet);
-			onConnected?.(wallet);
+			// Quietly open a manage session on any page, so navigating to
+			// /manage after a header connect doesn't ask to connect again.
+			// (The manage page runs its own login with visible UI instead.)
+			if (document.body.dataset.page !== 'manage') primeWalletSession(wallet);
+			siteWalletBarOpts.onConnected?.(wallet);
 		},
 		onDisconnected: () => {
 			updateHeaderWalletUi(null);
-			onDisconnected?.();
+			siteWalletBarOpts.onDisconnected?.();
 		},
-		onSendComplete: (txid) => onSendComplete?.(txid),
+		onSendComplete: (txid) => siteWalletBarOpts.onSendComplete?.(txid),
 	});
 	return siteWalletBar;
 }
@@ -1004,25 +1054,47 @@ function initManage() {
 		renderPagesList(login);
 	}
 
+	function showLoginError(err) {
+		errBox.hidden = false;
+		errBox.textContent = err.message === 'no pages found for this wallet'
+			? 'No pages found for this wallet — did you create the page with a different wallet?'
+			: err.message;
+	}
+
+	// Register up-front so the header Connect button logs into manage too —
+	// the site shares one wallet bar, and callbacks are late-bound.
+	siteWalletBarOpts = {
+		...siteWalletBarOpts,
+		onConnected: (wallet) => {
+			if (!wallet?.ufvk) return;
+			walletLogin(wallet.ufvk)
+				.then(() => {
+					// Still on the unlock form → close the modal so the page
+					// list is visible. Mid-payment connects (Pay with winbit32
+					// from a quote card) keep the send form open instead.
+					if (panel.hidden) siteWalletBar?.close();
+				})
+				.catch((err) => {
+					// A non-owner wallet connecting just to PAY a quote is
+					// fine — only surface login errors on the unlock form.
+					if (panel.hidden) showLoginError(err);
+				});
+		}
+	};
+
 	$('m-wallet-connect')?.addEventListener('click', async () => {
 		errBox.hidden = true;
 		const btn = $('m-wallet-connect');
 		btn.disabled = true;
 		try {
-			const bar = await ensureSiteWalletBar({
-				onConnected: (wallet) => {
-					if (wallet?.ufvk) walletLogin(wallet.ufvk).catch((err) => {
-						errBox.hidden = false;
-						errBox.textContent = err.message === 'no pages found for this wallet'
-							? 'No pages found for this wallet — did you create the page with a different wallet?'
-							: err.message;
-					});
-				}
-			});
-			bar.open();
+			const bar = await ensureSiteWalletBar();
+			const wallet = bar.getWallet();
+			// Already connected (e.g. via the header button) — no need to ask
+			// again, go straight to the page list.
+			if (wallet?.ufvk) await walletLogin(wallet.ufvk);
+			else bar.open();
 		} catch (err) {
-			errBox.hidden = false;
-			errBox.textContent = err.message || String(err);
+			showLoginError(err);
 		} finally {
 			btn.disabled = false;
 		}
