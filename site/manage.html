@@ -11,7 +11,7 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="styles.css?v=20260716a" />
+	<link rel="stylesheet" href="styles.css?v=20260717b" />
 </head>
 <body data-page="manage">
 	<div class="atmos" aria-hidden="true"></div>
@@ -139,15 +139,6 @@
 			</div>
 
 			<div class="card manage-block">
-				<h3>Stream overlay</h3>
-				<p style="color:var(--muted);font-size:0.9rem;margin:0 0 0.75rem;">
-					Add this URL as an OBS browser source (transparent background).
-				</p>
-				<p><code id="obs-url" style="font-size:0.8rem;word-break:break-all;"></code></p>
-				<button type="button" class="btn btn--ghost btn--sm" id="copy-obs">Copy overlay URL</button>
-			</div>
-
-			<div class="card manage-block">
 				<h3>Recovery code</h3>
 				<p style="color:var(--muted);font-size:0.9rem;margin:0 0 1rem;">
 					Your lost-key lifeline. Rotate it any time — the new code is shown once, the old one stops working. Pages created
@@ -155,6 +146,31 @@
 				</p>
 				<button type="button" class="btn btn--ghost btn--sm" id="rotate-recovery">Generate new recovery code</button>
 				<div id="recovery-result" style="margin-top:0.75rem;" hidden></div>
+			</div>
+
+			<div class="card manage-block">
+				<h3>Overlay &amp; API</h3>
+				<p style="color:var(--muted);font-size:0.9rem;margin:0 0 0.85rem;">
+					OBS browser source (transparent background) and the public JSON events feed for this page.
+				</p>
+				<div class="field">
+					<label>Stream overlay</label>
+					<p class="field__hint" style="margin:0 0 0.35rem;">Paste into OBS → Sources → Browser. Width ~400, height ~720.</p>
+					<p><code id="obs-url" style="font-size:0.8rem;word-break:break-all;"></code></p>
+					<div class="form-actions" style="justify-content:flex-start;gap:0.5rem;margin-top:0.5rem;">
+						<a class="btn btn--ghost btn--sm" id="obs-open" href="#" target="_blank" rel="noopener">Open overlay</a>
+						<button type="button" class="btn btn--ghost btn--sm" id="copy-obs">Copy overlay URL</button>
+					</div>
+				</div>
+				<div class="field" style="margin-top:1rem;">
+					<label>Events API</label>
+					<p class="field__hint" style="margin:0 0 0.35rem;">Public JSON of gifts (<code>sinceId</code> cursor). CORS allowed from ziving.org.</p>
+					<p><code id="api-events-url" style="font-size:0.8rem;word-break:break-all;"></code></p>
+					<div class="form-actions" style="justify-content:flex-start;gap:0.5rem;margin-top:0.5rem;">
+						<a class="btn btn--ghost btn--sm" id="api-events-open" href="#" target="_blank" rel="noopener">Open JSON</a>
+						<button type="button" class="btn btn--ghost btn--sm" id="copy-api-events">Copy API URL</button>
+					</div>
+				</div>
 			</div>
 
 			<div class="card manage-block" style="border-color:rgba(224,120,120,0.35);">
@@ -172,6 +188,6 @@
 		<a href="/">ziving.org</a> · owner tools · unverified pages by design · no accounts
 	</footer>
 
-	<script src="app.js?v=20260717a" type="module"></script>
+	<script src="app.js?v=20260717b" type="module"></script>
 </body>
 </html>

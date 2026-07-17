@@ -27,7 +27,9 @@ const fmtZec = (n) => {
 };
 
 const pageUrl = (slug) => `${ZIVING_ORIGIN}/p/${encodeURIComponent(slug)}`;
-const overlayUrl = (slug) => `${ZIVING_ORIGIN}/overlay.html?slug=${encodeURIComponent(slug)}`;
+/** OBS browser-source URL (slug form — overlay.html also accepts ?overlay=ov_…). */
+const overlayUrl = (slug) => `${ZIVING_ORIGIN}/overlay?slug=${encodeURIComponent(slug)}`;
+const eventsApiUrl = (slug) => `${API_BASE}/v1/ziving/page/${encodeURIComponent(slug)}/events?sinceId=0`;
 
 async function api(path, opts = {}) {
 	const res = await fetch(`${API_BASE}${path}`, {
@@ -728,8 +730,7 @@ function initHome() {
 
 				const actions = el('div', { class: 'create-success__actions' },
 					el('a', { class: 'btn btn--primary', href: url, text: 'View page' }),
-					el('a', { class: 'btn btn--ghost', href: `/manage?slug=${encodeURIComponent(slug)}`, text: 'Manage' }),
-					el('a', { class: 'btn btn--ghost', href: overlayUrl(slug), text: 'Stream overlay' }));
+					el('a', { class: 'btn btn--ghost', href: `/manage?slug=${encodeURIComponent(slug)}`, text: 'Manage' }));
 				const payHost = el('div');
 				const kids = [
 					el('p', { class: 'create-success__lede' },
@@ -782,7 +783,6 @@ function initHome() {
 
 async function loadCampaign(slug) {
 	const root = $('campaign-root');
-	const obsLink = $('obs-link');
 	try {
 		const page = await api(`/v1/ziving/page/${encodeURIComponent(slug)}`);
 		document.title = `${page.label || slug} — Ziving`;
@@ -907,11 +907,6 @@ async function loadCampaign(slug) {
 				connectWalletBtn.disabled = false;
 			}
 		});
-
-		if (obsLink) {
-			obsLink.hidden = false;
-			obsLink.href = page.urls?.obsPage || overlayUrl(slug);
-		}
 
 		await pollEvents();
 		setInterval(pollEvents, POLL_MS);
@@ -1058,7 +1053,15 @@ function initManage() {
 			el('p', { style: 'color:var(--muted);margin:0.35rem 0 0;font-size:0.82rem;',
 				text: `Expires ${page.expires_at ? new Date(page.expires_at).toLocaleString() : '—'}` })
 		);
-		$('obs-url').textContent = overlayUrl(session.slug);
+		$('obs-url').textContent = page.urls?.obsPage || overlayUrl(session.slug);
+		const obsOpen = $('obs-open');
+		if (obsOpen) obsOpen.href = $('obs-url').textContent;
+		const eventsUrl = page.urls?.events
+			? (page.urls.events.startsWith('http') ? page.urls.events : `${API_BASE}${page.urls.events}${page.urls.events.includes('?') ? '&' : '?'}sinceId=0`)
+			: eventsApiUrl(session.slug);
+		if ($('api-events-url')) $('api-events-url').textContent = eventsUrl;
+		const apiOpen = $('api-events-open');
+		if (apiOpen) apiOpen.href = eventsUrl;
 		return page;
 	}
 
@@ -1195,6 +1198,9 @@ function initManage() {
 
 	$('copy-obs')?.addEventListener('click', async () => {
 		await copyText($('obs-url').textContent, $('copy-obs'));
+	});
+	$('copy-api-events')?.addEventListener('click', async () => {
+		await copyText($('api-events-url').textContent, $('copy-api-events'));
 	});
 
 	$('topup-form')?.addEventListener('submit', async (e) => {
