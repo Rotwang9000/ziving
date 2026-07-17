@@ -29,58 +29,66 @@
 	<main>
 		<h1 class="section-title">Manage your <span class="accent">page</span></h1>
 		<p class="hero__lead" style="margin:0 0 1.5rem;max-width:40rem;">
-			Unlock with the same donation wallet you used to create the page — or paste the owner token if you still have it.
+			Connect the winbit32 wallet you created the page with, or unlock with your magic key. Secrets never get typed into this page.
 		</p>
 
 		<form id="unlock-form" class="card" style="max-width:36rem;">
-			<div class="field">
-				<label for="m-slug">Page slug</label>
-				<input id="m-slug" name="slug" required pattern="[a-z0-9-]{3,48}" placeholder="alice-marathon" autocomplete="off" />
-			</div>
-
 			<div class="wallet-modes unlock-modes" role="tablist" aria-label="Unlock method">
 				<button type="button" class="wallet-mode unlock-mode is-active" data-unlock-mode="wallet">Wallet</button>
-				<button type="button" class="wallet-mode unlock-mode" data-unlock-mode="token">Owner token</button>
+				<button type="button" class="wallet-mode unlock-mode" data-unlock-mode="token">Magic key</button>
+				<button type="button" class="wallet-mode unlock-mode" data-unlock-mode="recover">Lost key</button>
 			</div>
 
 			<div id="unlock-panel-wallet">
 				<p class="field__hint" style="margin-bottom:0.85rem;">
-					Open the campaign wallet (phrase, UFVK, <code>.wult</code> / locket) — we match the stored view key and issue a fresh manage token.
+					Opens the winbit32 connect dialog — your keys stay in the wallet. We list every page this wallet owns.
 				</p>
-				<div class="field">
-					<label for="m-wallet-phrase">Recovery phrase or UFVK</label>
-					<textarea id="m-wallet-phrase" rows="3" spellcheck="false" placeholder="twenty four words… or uview1…"></textarea>
-				</div>
-				<div class="field">
-					<label for="m-wallet-file">Or wallet file</label>
-					<input id="m-wallet-file" type="file" accept=".txt,.wult,.png,image/png,text/plain" />
-				</div>
-				<div class="field" id="m-wallet-password-wrap" hidden>
-					<label for="m-wallet-password">Password (if encrypted)</label>
-					<input id="m-wallet-password" type="password" autocomplete="off" />
-				</div>
-				<div class="form-actions" style="justify-content:flex-start;margin-bottom:0.75rem;">
-					<button type="button" class="btn btn--ghost btn--sm" id="m-wallet-open">Open wallet</button>
+				<div class="form-actions" style="justify-content:flex-start;margin-bottom:0.5rem;">
+					<button type="button" class="btn btn--primary" id="m-wallet-connect">Connect wallet</button>
 				</div>
 				<p id="m-wallet-status" class="field__hint" hidden></p>
-				<input type="hidden" id="m-ufvk" value="" />
+				<div id="m-pages-list" style="margin-top:0.75rem;" hidden></div>
 			</div>
 
 			<div id="unlock-panel-token" hidden>
 				<div class="field">
-					<label for="m-token">Owner token</label>
-					<input id="m-token" name="token" autocomplete="off" spellcheck="false" placeholder="paste token…" />
-					<p class="field__hint">Shown once at create (and when recovering). Prefer wallet unlock if you lost it.</p>
+					<label for="m-slug">Page slug</label>
+					<input id="m-slug" name="slug" pattern="[a-z0-9-]{3,48}" placeholder="alice-marathon" autocomplete="off" />
+				</div>
+				<div class="field">
+					<label for="m-token">Magic key (owner token)</label>
+					<input id="m-token" name="token" autocomplete="off" spellcheck="false" placeholder="paste your magic key…" />
+					<p class="field__hint">Shown once when the page was created. Lost it? Use your wallet, or the Lost key tab.</p>
+				</div>
+				<label class="field" style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+					<input type="checkbox" id="m-remember" checked />
+					<span style="color:var(--muted);font-size:0.88rem;">Remember on this device</span>
+				</label>
+				<div class="form-actions" style="justify-content:flex-start;">
+					<button type="submit" class="btn btn--primary" id="unlock-submit">Unlock</button>
 				</div>
 			</div>
 
-			<label class="field" style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-				<input type="checkbox" id="m-remember" checked />
-				<span style="color:var(--muted);font-size:0.88rem;">Remember on this device</span>
-			</label>
-			<div class="form-actions" style="justify-content:flex-start;">
-				<button type="submit" class="btn btn--primary" id="unlock-submit">Unlock</button>
+			<div id="unlock-panel-recover" hidden>
+				<p class="field__hint" style="margin-bottom:0.85rem;">
+					Lost the magic key? Enter the <strong>recovery code</strong> from page creation. You'll get a small ZEC payment to make
+					(≈ $0.50, anti-abuse); once it confirms, claim a fresh magic key here.
+				</p>
+				<div class="field">
+					<label for="r-slug">Page slug</label>
+					<input id="r-slug" pattern="[a-z0-9-]{3,48}" placeholder="alice-marathon" autocomplete="off" />
+				</div>
+				<div class="field">
+					<label for="r-code">Recovery code</label>
+					<input id="r-code" autocomplete="off" spellcheck="false" placeholder="zrk-…" />
+				</div>
+				<div class="form-actions" style="justify-content:flex-start;gap:0.5rem;">
+					<button type="button" class="btn btn--primary" id="recover-start">Get unlock payment</button>
+					<button type="button" class="btn btn--ghost" id="recover-claim">I've paid — claim new key</button>
+				</div>
+				<div id="recover-result" style="margin-top:0.75rem;" hidden></div>
 			</div>
+
 			<div id="unlock-error" class="result-box result-box--warn" hidden></div>
 		</form>
 
@@ -139,6 +147,16 @@
 				<button type="button" class="btn btn--ghost btn--sm" id="copy-obs">Copy overlay URL</button>
 			</div>
 
+			<div class="card manage-block">
+				<h3>Recovery code</h3>
+				<p style="color:var(--muted);font-size:0.9rem;margin:0 0 1rem;">
+					Your lost-key lifeline. Rotate it any time — the new code is shown once, the old one stops working. Pages created
+					before recovery codes existed can adopt one here.
+				</p>
+				<button type="button" class="btn btn--ghost btn--sm" id="rotate-recovery">Generate new recovery code</button>
+				<div id="recovery-result" style="margin-top:0.75rem;" hidden></div>
+			</div>
+
 			<div class="card manage-block" style="border-color:rgba(224,120,120,0.35);">
 				<h3 style="color:var(--danger);">Cancel page</h3>
 				<p style="color:var(--muted);font-size:0.9rem;margin:0 0 1rem;">
@@ -154,6 +172,6 @@
 		<a href="/">ziving.org</a> · owner tools · unverified pages by design · no accounts
 	</footer>
 
-	<script src="app.js?v=20260715b" type="module"></script>
+	<script src="app.js?v=20260717a" type="module"></script>
 </body>
 </html>
