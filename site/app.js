@@ -42,8 +42,11 @@ async function api(path, opts = {}) {
 	});
 	const body = await res.json().catch(() => ({}));
 	if (!res.ok) {
-		const msg = body?.error?.message || `HTTP ${res.status}`;
-		throw new Error(msg);
+		const err = new Error(body?.error?.message || `HTTP ${res.status}`);
+		err.code = body?.error?.code;
+		err.existingSlug = body?.error?.existingSlug;
+		err.existingOverlayId = body?.error?.existingOverlayId;
+		throw err;
 	}
 	return body;
 }
@@ -815,11 +818,27 @@ function initHome() {
 		} catch (err) {
 			const slug = normaliseSlug(slugInput.value);
 			const saved = loadOwnerCredentials(slug);
-			const taken = /already in use/i.test(err.message || '');
+			const taken = err.code === 'slug_taken' || /already in use/i.test(err.message || '');
+			const walletTaken = err.code === 'wallet_already_has_page';
+			const existingSlug = err.existingSlug || null;
 			if (result) {
 				result.hidden = false;
 				result.className = 'result-box result-box--warn';
-				if (taken) {
+				if (walletTaken) {
+					const manageSlug = existingSlug || slug;
+					const actions = [
+						existingSlug
+							? el('a', { class: 'btn btn--primary', href: pageUrl(existingSlug), text: 'View existing page' })
+							: null,
+						el('a', { class: 'btn btn--ghost', href: `/manage${manageSlug ? `?slug=${encodeURIComponent(manageSlug)}` : ''}`, text: 'Manage / cancel' }),
+						el('a', { class: 'btn btn--ghost', href: '/manage', text: 'Wallet login' })
+					].filter(Boolean);
+					result.replaceChildren(
+						el('p', { text: err.message || 'This wallet already has an active page.' }),
+						el('div', { class: 'create-success__actions', style: 'margin-top:0.75rem;' }, ...actions),
+						el('p', { class: 'field__hint', text: 'One active page per wallet — the scanner cannot tell which campaign a gift was meant for otherwise. Cancel the old page first, or use a different wallet.' })
+					);
+				} else if (taken) {
 					result.replaceChildren(
 						el('p', { text: `Page "${slug}" already exists — no need to create it again.` }),
 						el('div', { class: 'create-success__actions', style: 'margin-top:0.75rem;' },

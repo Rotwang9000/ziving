@@ -45,6 +45,7 @@ Owner-token header on manage routes: `x-overlay-token`.
 
 - No accounts, email, or IP logging on campaign pages.
 - UFVK encrypted at rest (AES-256-GCM); donation events prune after ~30 days.
+- **One active page per wallet** (UFVK fingerprint / receive address). Creating a second page with the same key returns `409 wallet_already_has_page` — cancel the old page first. Otherwise the scanner would attribute the same notes to both pages.
 - Manual UFVK+address create has **no seed** — the owner token (or that UFVK via recover) is the only manage path.
 - Do not invent custody or KYC requirements; do not claim Ziving holds funds.
 
