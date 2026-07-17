@@ -233,9 +233,6 @@ async function ensureSiteWalletBar(extra = {}) {
 		...mountOpts,
 		onConnected: (wallet) => {
 			updateHeaderWalletUi(wallet);
-			if (page === 'manage' && wallet?.ufvk && $('m-wallet-phrase') && !$('m-wallet-phrase').value.trim()) {
-				$('m-wallet-phrase').value = wallet.ufvk;
-			}
 			onConnected?.(wallet);
 		},
 		onDisconnected: () => {
@@ -699,31 +696,39 @@ function initHome() {
 				result.hidden = false;
 				result.className = 'create-success';
 				const token = out.ownerToken || '';
+				const recoveryCode = out.recoveryCode || '';
 				const isManual = walletMode === 'manual';
 				const tokenCode = el('code', { id: 'owner-token-value', text: token });
 				const copyTokenBtn = el('button', {
 					type: 'button',
 					class: 'btn btn--ghost btn--sm',
-					text: 'Copy owner token',
+					text: 'Copy magic key',
 				});
 				copyTokenBtn.addEventListener('click', () => copyText(token, copyTokenBtn));
+				const recoveryBits = recoveryCode ? [
+					el('p', { class: 'field__hint', style: 'margin-top:0.7rem;', html:
+						'<strong>Recovery code</strong> — your lost-key lifeline. If you ever lose the magic key, this code plus a small ZEC payment unlocks a new one.' }),
+					el('code', { id: 'recovery-code-value', text: recoveryCode })
+				] : [];
 
 				const tokenBox = isManual
 					? el('div', { class: 'create-success__token create-success__token--urgent', role: 'note' },
 						el('p', { class: 'field__hint field__hint--warn', html:
-							'<strong>Save this owner token now — shown only once.</strong> '
-							+ 'We only keep a hash. Without it (and without the UFVK you pasted), you cannot manage this page.' }),
+							'<strong>Save your magic key + recovery code now — each shown only once.</strong> '
+							+ 'We only keep hashes. Without them you cannot manage this page.' }),
 						tokenCode,
+						...recoveryBits,
 						el('div', { class: 'form-actions', style: 'justify-content:flex-start;margin-top:0.5rem;' }, copyTokenBtn))
 					: el('details', { class: 'create-success__token', open: '' },
-						el('summary', { text: 'Owner token — copy and save (shown only once)' }),
-						el('p', { class: 'field__hint', text: 'We only keep a hash. Needed if you clear site data; you can also unlock Manage with the wallet UFVK / seed.' }),
+						el('summary', { text: 'Magic key + recovery code — copy and save (shown only once)' }),
+						el('p', { class: 'field__hint', text: 'We only keep hashes. Your connected wallet also unlocks Manage, but store these offline as backup.' }),
 						tokenCode,
+						...recoveryBits,
 						el('div', { class: 'form-actions', style: 'justify-content:flex-start;margin-top:0.5rem;' }, copyTokenBtn));
 
 				const actions = el('div', { class: 'create-success__actions' },
 					el('a', { class: 'btn btn--primary', href: url, text: 'View page' }),
-					el('a', { class: 'btn btn--ghost', href: `/manage.html?slug=${encodeURIComponent(slug)}`, text: 'Manage' }),
+					el('a', { class: 'btn btn--ghost', href: `/manage?slug=${encodeURIComponent(slug)}`, text: 'Manage' }),
 					el('a', { class: 'btn btn--ghost', href: overlayUrl(slug), text: 'Stream overlay' }));
 				const payHost = el('div');
 				const kids = [
@@ -753,7 +758,7 @@ function initHome() {
 						el('p', { text: `Page "${slug}" already exists — no need to create it again.` }),
 						el('div', { class: 'create-success__actions', style: 'margin-top:0.75rem;' },
 							el('a', { class: 'btn btn--primary', href: pageUrl(slug), text: 'View page' }),
-							el('a', { class: 'btn btn--ghost', href: `/manage.html?slug=${encodeURIComponent(slug)}`, text: 'Manage' })),
+							el('a', { class: 'btn btn--ghost', href: `/manage?slug=${encodeURIComponent(slug)}`, text: 'Manage' })),
 						saved
 							? el('p', { class: 'field__hint', text: 'Owner credentials are still in this browser. Manage unlocks with the saved token or your wallet.' })
 							: el('p', { class: 'field__hint', text: 'Unlock Manage with the wallet UFVK you used when creating the page.' })
@@ -915,7 +920,7 @@ async function loadCampaign(slug) {
 	}
 }
 
-// ── Manage page (wallet UFVK or owner token) ────────────────────────
+// ── Manage page (winbit32 wallet connect, magic key, or lost-key) ───
 
 function initManage() {
 	const unlockForm = $('unlock-form');
@@ -925,13 +930,17 @@ function initManage() {
 	const tokenField = $('m-token');
 
 	const preSlug = normaliseSlug(new URLSearchParams(location.search).get('slug'));
-	if (preSlug && slugField) {
-		slugField.value = preSlug;
+	if (preSlug) {
+		if (slugField) slugField.value = preSlug;
+		if ($('r-slug')) $('r-slug').value = preSlug;
 		const saved = loadOwnerCredentials(preSlug);
 		if (saved?.ownerToken && tokenField) tokenField.value = saved.ownerToken;
 	}
 
 	let session = { slug: '', overlayId: '', ownerToken: '' };
+	// Wallet-login session (24h, covers every page of the connected wallet).
+	let walletSession = null;
+	try { walletSession = JSON.parse(sessionStorage.getItem('ziving.walletSession') || 'null'); } catch { /* ignore */ }
 	let unlockMode = 'wallet';
 
 	function setUnlockMode(mode) {
@@ -939,9 +948,12 @@ function initManage() {
 		for (const btn of document.querySelectorAll('.unlock-mode')) {
 			btn.classList.toggle('is-active', btn.dataset.unlockMode === mode);
 		}
-		if ($('unlock-panel-wallet')) $('unlock-panel-wallet').hidden = mode !== 'wallet';
-		if ($('unlock-panel-token')) $('unlock-panel-token').hidden = mode !== 'token';
+		for (const m of ['wallet', 'token', 'recover']) {
+			const el2 = $(`unlock-panel-${m}`);
+			if (el2) el2.hidden = mode !== m;
+		}
 		if (tokenField) tokenField.required = mode === 'token';
+		if (slugField) slugField.required = mode === 'token';
 	}
 
 	for (const btn of document.querySelectorAll('.unlock-mode')) {
@@ -949,14 +961,81 @@ function initManage() {
 	}
 	setUnlockMode(tokenField?.value ? 'token' : 'wallet');
 
-	async function enterSession(slug, overlayId, ownerToken) {
+	async function enterSession(slug, overlayId, ownerToken, { remember = true } = {}) {
 		session = { slug, overlayId, ownerToken };
-		if ($('m-remember')?.checked) saveOwnerCredentials(slug, overlayId, ownerToken);
-		else clearOwnerCredentials(slug);
+		if (remember && $('m-remember')?.checked) saveOwnerCredentials(slug, overlayId, ownerToken);
 		unlockForm.hidden = true;
 		panel.hidden = false;
 		await refreshStatus();
-		history.replaceState(null, '', `/manage.html?slug=${encodeURIComponent(slug)}`);
+		history.replaceState(null, '', `${location.pathname}?slug=${encodeURIComponent(slug)}`);
+	}
+
+	// ── Wallet connect → page list ──────────────────────────────────
+	function renderPagesList(login) {
+		const box = $('m-pages-list');
+		if (!box) return;
+		box.hidden = false;
+		const items = (login.pages || []).map((p) => {
+			const manageBtn = el('button', { type: 'button', class: 'btn btn--primary btn--sm', text: 'Manage' });
+			manageBtn.addEventListener('click', async () => {
+				manageBtn.disabled = true;
+				try { await enterSession(p.slug, p.overlayId, login.sessionToken, { remember: false }); }
+				catch (err) { errBox.hidden = false; errBox.textContent = err.message; }
+				finally { manageBtn.disabled = false; }
+			});
+			const state = p.cancelled ? 'cancelled' : (p.active ? 'active' : 'out of credit');
+			return el('div', { class: 'card', style: 'display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;padding:0.75rem 1rem;margin:0 0 0.5rem;' },
+				el('div', {},
+					el('strong', { text: p.label || p.slug }),
+					el('p', { class: 'field__hint', style: 'margin:0.2rem 0 0;', text: `/p/${p.slug} · ${state} · raised ${fmtZec(p.raised?.zec)}` })),
+				manageBtn);
+		});
+		box.replaceChildren(
+			el('p', { class: 'field__hint', text: `This wallet owns ${items.length} page${items.length === 1 ? '' : 's'}:` }),
+			...items
+		);
+	}
+
+	async function walletLogin(ufvk) {
+		const status = $('m-wallet-status');
+		if (status) { status.hidden = false; status.textContent = 'Looking up your pages…'; }
+		const login = await api('/v1/ziving/wallet/login', {
+			method: 'POST',
+			body: JSON.stringify({ ufvk })
+		});
+		walletSession = login;
+		try { sessionStorage.setItem('ziving.walletSession', JSON.stringify(login)); } catch { /* ignore */ }
+		if (status) status.textContent = 'Wallet connected.';
+		renderPagesList(login);
+	}
+
+	$('m-wallet-connect')?.addEventListener('click', async () => {
+		errBox.hidden = true;
+		const btn = $('m-wallet-connect');
+		btn.disabled = true;
+		try {
+			const bar = await ensureSiteWalletBar({
+				onConnected: (wallet) => {
+					if (wallet?.ufvk) walletLogin(wallet.ufvk).catch((err) => {
+						errBox.hidden = false;
+						errBox.textContent = err.message === 'no pages found for this wallet'
+							? 'No pages found for this wallet — did you create the page with a different wallet?'
+							: err.message;
+					});
+				}
+			});
+			bar.open();
+		} catch (err) {
+			errBox.hidden = false;
+			errBox.textContent = err.message || String(err);
+		} finally {
+			btn.disabled = false;
+		}
+	});
+
+	// Restore a still-valid wallet session (page reload within 24h).
+	if (walletSession?.sessionToken && new Date(walletSession.expires_at || 0).getTime() > Date.now()) {
+		renderPagesList(walletSession);
 	}
 
 	async function refreshStatus() {
@@ -983,14 +1062,6 @@ function initManage() {
 		return page;
 	}
 
-	async function unlockWithUfvk(slug, ufvk) {
-		const recovered = await api(`/v1/ziving/page/${encodeURIComponent(slug)}/recover`, {
-			method: 'POST',
-			body: JSON.stringify({ ufvk })
-		});
-		await enterSession(slug, recovered.overlayId, recovered.ownerToken);
-	}
-
 	async function unlockWithToken(slug, ownerToken) {
 		const page = await api(`/v1/ziving/page/${encodeURIComponent(slug)}`);
 		await api(`/v1/overlay/${encodeURIComponent(page.overlayId)}/owner`, {
@@ -1009,62 +1080,114 @@ function initManage() {
 		} catch { /* stay on unlock form */ }
 	})();
 
-	$('m-wallet-open')?.addEventListener('click', async () => {
-		errBox.hidden = true;
-		const btn = $('m-wallet-open');
-		btn.disabled = true;
-		btn.textContent = 'Opening…';
-		try {
-			const kit = await loadWalletKit();
-			const phrase = ($('m-wallet-phrase')?.value || '').trim();
-			const file = $('m-wallet-file')?.files?.[0];
-			const password = ($('m-wallet-password')?.value || '').trim() || undefined;
-			let opened;
-			if (file) opened = await kit.openFromFile(file, password);
-			else if (phrase.startsWith('uview')) opened = await kit.openFromUfvk(phrase);
-			else if (phrase) opened = await kit.openFromPhrase(phrase);
-			else throw new Error('Paste a recovery phrase or UFVK, or choose a wallet file');
-			if ($('m-ufvk')) $('m-ufvk').value = opened.ufvk || '';
-			$('m-wallet-status').hidden = false;
-			$('m-wallet-status').textContent = `Wallet ready · ${opened.address?.slice(0, 18) || 'u…'}…`;
-		} catch (err) {
-			errBox.hidden = false;
-			errBox.textContent = err.message || String(err);
-		} finally {
-			btn.disabled = false;
-			btn.textContent = 'Open wallet';
-		}
-	});
-
-	$('m-wallet-file')?.addEventListener('change', () => {
-		const name = $('m-wallet-file')?.files?.[0]?.name || '';
-		if (/(\.wult|\.png)$/i.test(name) && $('m-wallet-password-wrap')) {
-			$('m-wallet-password-wrap').hidden = false;
-		}
-	});
-
 	unlockForm?.addEventListener('submit', async (e) => {
 		e.preventDefault();
+		if (unlockMode !== 'token') return;
 		errBox.hidden = true;
 		const slug = normaliseSlug(slugField.value);
 		if (!slug) return;
 		const btn = $('unlock-submit');
 		btn.disabled = true;
 		try {
-			if (unlockMode === 'token') {
-				const ownerToken = String(tokenField.value || '').trim();
-				if (!ownerToken) throw new Error('Paste the owner token, or switch to Wallet unlock');
-				await unlockWithToken(slug, ownerToken);
-			} else {
-				let ufvk = ($('m-ufvk')?.value || '').trim();
-				if (!ufvk.startsWith('uview')) {
-					throw new Error('Open your campaign wallet (or paste its UFVK) first');
-				}
-				await unlockWithUfvk(slug, ufvk);
-			}
+			const ownerToken = String(tokenField.value || '').trim();
+			if (!ownerToken) throw new Error('Paste your magic key, or connect the wallet instead');
+			await unlockWithToken(slug, ownerToken);
 		} catch (err) {
 			errBox.hidden = false;
 			errBox.textContent = err.message;
+		} finally {
+			btn.disabled = false;
+		}
+	});
+
+	// ── Lost-key recovery: code → small ZEC payment → claim new key ──
+	function recoverInputs() {
+		const slug = normaliseSlug($('r-slug')?.value);
+		const recoveryCode = String($('r-code')?.value || '').trim();
+		if (!slug) throw new Error('Enter the page slug');
+		if (!recoveryCode) throw new Error('Enter the recovery code from page creation (zrk-…)');
+		return { slug, recoveryCode };
+	}
+
+	$('recover-start')?.addEventListener('click', async () => {
+		errBox.hidden = true;
+		const box = $('recover-result');
+		const btn = $('recover-start');
+		btn.disabled = true;
+		try {
+			const { slug, recoveryCode } = recoverInputs();
+			const out = await api(`/v1/ziving/page/${encodeURIComponent(slug)}/recover`, {
+				method: 'POST',
+				body: JSON.stringify({ recoveryCode })
+			});
+			box.hidden = false;
+			box.replaceChildren();
+			renderPaymentCard(box, out.payment, {
+				title: 'Unlock payment',
+				graceNote: out.note || 'Once it confirms, press “I’ve paid — claim new key”.'
+			});
+		} catch (err) {
+			errBox.hidden = false;
+			errBox.textContent = err.message;
+		} finally {
+			btn.disabled = false;
+		}
+	});
+
+	$('recover-claim')?.addEventListener('click', async () => {
+		errBox.hidden = true;
+		const box = $('recover-result');
+		const btn = $('recover-claim');
+		btn.disabled = true;
+		try {
+			const { slug, recoveryCode } = recoverInputs();
+			const out = await api(`/v1/ziving/page/${encodeURIComponent(slug)}/recover/claim`, {
+				method: 'POST',
+				body: JSON.stringify({ recoveryCode })
+			});
+			box.hidden = false;
+			box.className = '';
+			box.replaceChildren(
+				el('div', { class: 'result-box' },
+					el('p', { html: '<strong>Save these now — shown only once.</strong>' }),
+					el('p', { class: 'field__hint', text: 'New magic key (owner token):' }),
+					el('code', { style: 'word-break:break-all;', text: out.ownerToken }),
+					el('p', { class: 'field__hint', style: 'margin-top:0.6rem;', text: 'New recovery code:' }),
+					el('code', { text: out.recoveryCode }))
+			);
+			saveOwnerCredentials(slug, out.overlayId, out.ownerToken);
+			await enterSession(slug, out.overlayId, out.ownerToken);
+		} catch (err) {
+			errBox.hidden = false;
+			errBox.textContent = /payment_required|not confirmed/iu.test(err.message)
+				? 'The unlock payment has not confirmed yet — give it a few minutes, then try again.'
+				: err.message;
+		} finally {
+			btn.disabled = false;
+		}
+	});
+
+	// ── Recovery code rotation (inside the unlocked panel) ───────────
+	$('rotate-recovery')?.addEventListener('click', async () => {
+		const box = $('recovery-result');
+		const btn = $('rotate-recovery');
+		if (!globalThis.confirm('Generate a new recovery code? The old one stops working immediately.')) return;
+		btn.disabled = true;
+		try {
+			const out = await api(`/v1/ziving/page/${encodeURIComponent(session.slug)}/recovery-code`, {
+				method: 'POST',
+				headers: { 'x-overlay-token': session.ownerToken }
+			});
+			box.hidden = false;
+			box.className = 'result-box';
+			box.replaceChildren(
+				el('p', { html: '<strong>New recovery code — shown only once. Store it offline.</strong>' }),
+				el('code', { text: out.recoveryCode })
+			);
+		} catch (err) {
+			box.hidden = false;
+			box.className = 'result-box result-box--warn';
+			box.textContent = err.message;
 		} finally {
 			btn.disabled = false;
 		}
