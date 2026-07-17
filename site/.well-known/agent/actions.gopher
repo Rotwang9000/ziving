@@ -1,0 +1,15 @@
+iThings agents (and humans) can do with Ziving:	
+i	
+hStart a fundraising page (site wizard)	URL:https://ziving.org
+hBrowse featured campaigns	URL:https://ziving.org/#featured
+hManage / top up / feature / cancel	URL:https://ziving.org/manage.html
+hOpen the winbit32 MCP (Streamable HTTP)	URL:https://mcp.winbit32.com/mcp
+hREST: service metadata	URL:https://mcp.winbit32.com/v1/ziving
+hREST: featured campaigns	URL:https://mcp.winbit32.com/v1/ziving/featured
+i	
+iMCP tools (prefix winbit32_ziving_*): info, get_page, featured, create_page,	
+ifeature, topup, cancel, recover — see the Agents card for schemas.	
+i	
+0Agents — MCP + REST detail	/.well-known/agent/agents.gopher
+1← Back to this card	/.well-known/agent.gopher
+.

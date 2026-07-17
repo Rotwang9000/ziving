@@ -1,0 +1,23 @@
+iZiving — Private Zcash fundraising (like giving, with a z).	
+iAgent/MCP discovery card (Gopher-over-HTTPS). Type 1 = drill in, 0 = read, h = follow URL.	
+iNo custody, no KYC: donors pay the fundraiser's shielded wallet directly.	
+i	
+0About — what this is (read here, no web tab)	/.well-known/agent/about.gopher
+0Agents — how agents/LLMs use it (MCP + REST)	/.well-known/agent/agents.gopher
+1Actions — create, feature, top up, cancel	/.well-known/agent/actions.gopher
+i	
+iLinks — site, MCP & source (these open a browser tab):	
+hZiving home — start a page	URL:https://ziving.org
+hFeatured campaigns	URL:https://ziving.org/#featured
+hManage a page	URL:https://ziving.org/manage.html
+hMCP server (Streamable HTTP)	URL:https://mcp.winbit32.com/mcp
+hREST metadata	URL:https://mcp.winbit32.com/v1/ziving
+hSource (GitHub)	URL:https://github.com/Rotwang9000/ziving
+i	
+iOther sites in this ecosystem (drill in):	
+hwinbit32 — Non-custodial multi-chain wallet (a desktop in your browser)	URL:https://winbit32.com/.well-known/agent.gopher
+hsecresea — Privacy NFT marketplace — NFTs (NFPTs) minted on Zcash	URL:https://secresea.com/.well-known/agent.gopher
+hZecBus — Non-custodial Zcash mixing "departures"	URL:https://zecbus.com/.well-known/agent.gopher
+hSeneschal — Monero/Zcash payment webhooks + Ethereum builder/DeFi data	URL:https://seneschal.space/.well-known/agent.gopher
+hFlashBank — Non-custodial flash loans + fixed-term P2P loans	URL:https://flashbank.net/.well-known/agent.gopher
+.

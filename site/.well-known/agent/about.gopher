@@ -1,0 +1,17 @@
+Ziving — what this is
+=====================
+Private Zcash fundraising pages — like JustGiving, with a z.
+
+Fundraisers create a campaign page, receive shielded ZEC straight to their
+own wallet, and show live gifts on the page or an OBS stream overlay.
+Ziving never holds spend keys: donors pay the campaign address wallet-to-
+wallet. There are no accounts, no KYC, and no cause checks — pages are
+unverified by design.
+
+Pricing (prepaid in ZEC memo quotes):
+  • UFVK scanning credit — $0.10 / day (grace ~1.5 days at create)
+  • Homepage feature      — $5.00 / day (optional, 1–30 days)
+
+Site: https://ziving.org
+API:  https://mcp.winbit32.com/v1/ziving
+MCP:  https://mcp.winbit32.com/mcp  (tools winbit32_ziving_*)

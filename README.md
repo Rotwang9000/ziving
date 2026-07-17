@@ -31,6 +31,8 @@ ziving/
     p.html              # Public campaign page (also /p/<slug>)
     manage.html         # Top-up / feature / cancel (wallet or token unlock)
     overlay.html        # OBS browser source
+    .well-known/        # Gopher-over-HTTPS agent discovery cards
+  AGENTS.md             # Instructions for AI agents (MCP + REST)
   ops/nginx/            # Example nginx vhost
   Jenkinsfile
   README.md
@@ -64,6 +66,15 @@ On `https://mcp.winbit32.com/mcp` (prefix e.g. `winbit32`):
 - `*_ziving_topup` / `*_ziving_cancel` — manage
 
 Tools POST to the public REST base when `fetch` is available.
+
+Agent discovery:
+
+| | |
+|---|---|
+| **AGENTS.md** | Repo root — Cursor / agent instructions |
+| **Gopher card** | `https://ziving.org/.well-known/agent.gopher` (about / agents / actions) |
+
+Verify free tools: call `winbit32_ziving_info` or `GET https://mcp.winbit32.com/v1/ziving`.
 
 ## On-page wallet
 

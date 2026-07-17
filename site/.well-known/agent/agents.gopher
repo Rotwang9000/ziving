@@ -1,0 +1,31 @@
+Ziving — for agents
+===================
+MCP (Streamable HTTP): https://mcp.winbit32.com/mcp
+Tool prefix: winbit32_ziving_*
+
+Free reads:
+  winbit32_ziving_info       pricing + how-to + endpoint map
+  winbit32_ziving_get_page   public campaign by slug (never returns UFVK/token)
+  winbit32_ziving_featured   homepage-promoted campaigns
+
+Writes (return ZEC memo quotes; keep ownerToken from create — shown once):
+  winbit32_ziving_create_page  { slug, label, ufvk, address, story?, goalZec?, amountUsdCents? }
+  winbit32_ziving_feature      { slug, ownerToken, days }     # homepage promo
+  winbit32_ziving_topup        { overlayId, ownerToken, amountUsdCents }
+  winbit32_ziving_cancel       { overlayId, ownerToken }
+  winbit32_ziving_recover      { slug, ufvk }                 # fresh ownerToken if lost
+
+REST mirror (same gateway, CORS-enabled for browsers):
+  GET  /v1/ziving
+  GET  /v1/ziving/featured
+  POST /v1/ziving/page
+  GET  /v1/ziving/page/{slug}
+  GET  /v1/ziving/page/{slug}/events
+  POST /v1/ziving/page/{slug}/feature   (header x-overlay-token)
+  POST /v1/ziving/page/{slug}/recover   { ufvk }
+  POST /v1/overlay/{overlayId}/topup    (header x-overlay-token)
+  DELETE /v1/overlay/{overlayId}        (header x-overlay-token)
+
+Wallet tips: recommend a donation-only shielded wallet (UFVK sees amounts +
+memos, cannot spend). Manual UFVK paste has no seed — save the ownerToken.
+Humans can also use https://ziving.org (create wizard + Pay in browser).

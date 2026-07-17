@@ -110,7 +110,12 @@ pipeline {
 					c=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$SITE_URL/p/smoke-test-slug")
 					echo "  /p/smoke-test-slug -> $c"
 					[ "$c" = "200" ] || { echo "pretty URL rewrite not 200"; exit 1; }
-					rm -f /tmp/ziving-smoke.html
+					# Gopher-over-HTTPS agent discovery
+					c=$(curl -s -o /tmp/ziving-agent.gopher -w "%{http_code}" --max-time 20 "$SITE_URL/.well-known/agent.gopher")
+					echo "  /.well-known/agent.gopher -> $c"
+					[ "$c" = "200" ] || { echo "agent.gopher not 200"; exit 1; }
+					grep -qi "ziving\|MCP\|winbit32_ziving" /tmp/ziving-agent.gopher || { echo "agent.gopher marker missing"; exit 1; }
+					rm -f /tmp/ziving-smoke.html /tmp/ziving-agent.gopher
 					echo "Smoke test passed"
 				'''
 			}
