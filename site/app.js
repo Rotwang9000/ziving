@@ -178,7 +178,14 @@ function renderPaymentCard(root, payment, {
 		payWalletBtn.disabled = true;
 		try {
 			const bar = await ensureSiteWalletBar();
-			bar.setSendDefaults({ toAddress: payTo, amountZec: amount, memo });
+			bar.setSendDefaults({
+				toAddress: payTo, amountZec: amount, memo,
+				// This is a payment to the gateway (top-up / feature / unlock),
+				// not a campaign gift — swap the bar's donate wording out.
+				sendButtonLabel: 'Pay',
+				memoFieldLabel: 'Memo (required — this attributes your payment)',
+				sendToLabel: 'Paying the ziving gateway'
+			});
 			bar.open();
 		} catch (err) {
 			alert(err.message || String(err));
@@ -949,7 +956,14 @@ async function loadCampaign(slug) {
 			connectWalletBtn.disabled = true;
 			try {
 				const bar = await ensureSiteWalletBar();
-				bar.setSendDefaults({ toAddress: page.address });
+				bar.setSendDefaults({
+					toAddress: page.address,
+					// Restore donate wording in case a gateway payment (top-up
+					// etc.) switched the bar to its "Pay" labels earlier.
+					sendButtonLabel: 'Donate',
+					memoFieldLabel: 'Memo (optional — shows on the campaign)',
+					sendToLabel: 'Sending to this campaign'
+				});
 				bar.open();
 			} catch (err) {
 				alert(err.message || String(err));
