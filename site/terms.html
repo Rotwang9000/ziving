@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Terms — Ziving</title>
+	<meta name="description" content="Ziving terms of service: donations are direct wallet-to-wallet gifts between donor and fundraiser. Ziving hosts pages and watches the chain with a read-only key — it is not a party to any donation." />
+	<meta name="theme-color" content="#1a2420" />
+	<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+	<link rel="stylesheet" href="/styles.css?v=20260718a" />
+	<style>
+		.terms { max-width: 46rem; margin: 0 auto; padding: 1rem 1.25rem 4rem; }
+		.terms h1 { font-family: Fraunces, serif; margin-bottom: 0.25rem; }
+		.terms .updated { opacity: 0.7; font-size: 0.9rem; margin-bottom: 2rem; }
+		.terms h2 { margin-top: 2rem; font-size: 1.15rem; }
+		.terms p, .terms li { line-height: 1.6; }
+		.terms .callout { border-left: 3px solid var(--accent, #f4b942); padding: 0.5rem 1rem; background: rgba(255,255,255,0.04); border-radius: 0 8px 8px 0; margin: 1.5rem 0; }
+	</style>
+</head>
+<body data-page="terms">
+	<div class="atmos" aria-hidden="true"></div>
+	<header class="site-header">
+		<a class="brand" href="/">
+			<span class="brand__mark">z</span><span class="brand__name">iving</span><span class="brand__tag">.org</span>
+		</a>
+		<nav class="site-nav">
+			<a href="/">Home</a>
+			<a href="/manage">Manage</a>
+		</nav>
+	</header>
+
+	<main class="terms">
+		<h1>Terms of service</h1>
+		<p class="updated">Last updated 18 July 2026</p>
+
+		<div class="callout" role="note">
+			<p><strong>The short version.</strong> Ziving hosts fundraising pages and watches the Zcash blockchain
+			with a read-only view key. Donations travel directly from a donor's wallet to a fundraiser's wallet.
+			Ziving never holds, routes, or controls that money, and is not a party to any donation. Every gift is
+			a private arrangement between two people, made at their own risk.</p>
+		</div>
+
+		<h2>1. What Ziving is</h2>
+		<p>Ziving ("we", "us") provides a page-hosting and blockchain-watching service: fundraisers create a
+		public page, register a read-only Zcash unified full viewing key (UFVK), and we display incoming
+		shielded donations on that page and its stream overlay as they confirm on-chain. That display service
+		is the whole of what we sell.</p>
+
+		<h2>2. What Ziving is not</h2>
+		<ul>
+			<li>We are <strong>not a payment processor, money transmitter, custodian, or escrow</strong>. Donations
+			are sent by donors, from their own wallets, straight to the address the fundraiser registered. We
+			cannot hold, freeze, redirect, reverse, or refund a donation, and we never possess spend keys.</li>
+			<li>We are <strong>not a party to any donation</strong>. A gift made through a Ziving page is a private
+			transaction between the donor and the fundraiser. Any understanding, promise, or contract about that
+			gift exists between those two parties alone, and any dispute is theirs to resolve.</li>
+			<li>We are <strong>not a charity regulator</strong>. Pages are unverified by design: we do not check
+			who runs a campaign, their identity, their cause, or how funds are used.</li>
+		</ul>
+
+		<h2>3. Donate at your own risk</h2>
+		<p>Because pages are unverified and payments are irreversible, donors must satisfy themselves that a page
+		is genuine before sending anything. Send only what you are willing to gift outright. Ziving accepts no
+		responsibility for the conduct of fundraisers, the truth of their stories, or the use of donated funds.</p>
+
+		<h2>4. Fees</h2>
+		<ul>
+			<li><strong>Donations: no cut.</strong> Fundraisers receive the full amount a donor sends. Ziving takes
+			no percentage of donations.</li>
+			<li><strong>Scanning credit:</strong> keeping a page live costs a flat $0.10/day, prepaid in ZEC via a
+			quoted gateway payment. Credit buys scanning time; it is not a deposit and is non-refundable once
+			applied.</li>
+			<li><strong>Featured placement:</strong> homepage spotlight is a separate flat-rate purchase (from
+			$5/day), also prepaid in ZEC and non-refundable once the run starts.</li>
+			<li><strong>On-page wallet service fee:</strong> if you pay or donate using the optional in-browser
+			Winbit32 wallet, a 0.1% service fee is added <em>on top of</em> your amount (minimum 1 zatoshi) and paid
+			to the wallet operator. It is shown in the send form before you confirm. The recipient still receives
+			your full amount. Paying from any external wallet avoids this fee entirely; standard Zcash network
+			fees always apply.</li>
+		</ul>
+
+		<h2>5. Your responsibilities</h2>
+		<ul>
+			<li>You are responsible for your own keys. Seed phrases, owner tokens, magic keys, and recovery codes
+			are shown once and never stored by us in recoverable form. If you lose them, we may be unable to help,
+			and we can never recover funds.</li>
+			<li>Fundraisers are responsible for the lawfulness of their campaign and for any tax, reporting, or
+			regulatory obligations that attach to money they receive, in every jurisdiction that applies to them.</li>
+			<li>Donors are responsible for their own decision to give.</li>
+		</ul>
+
+		<h2>6. Acceptable use</h2>
+		<p>You may not use Ziving for fraud, impersonation of a person or organisation, campaigns that are
+		unlawful where you or your donors are located, or for evading sanctions. We may cancel or delist a page
+		at our discretion, without notice, where we believe it breaks these terms — cancelling a page stops the
+		scanning service; it does not and cannot touch funds already donated.</p>
+
+		<h2>7. Privacy</h2>
+		<p>No accounts, no emails, no IP logging on campaign pages. The UFVK is stored encrypted (AES-256-GCM)
+		and decrypted only inside the scanner. Donation events are pruned after roughly 30 days. Public pages
+		display whatever label, story, and donation memos exist — memos sent by donors appear publicly on the
+		page, so donors should not put private information in a memo.</p>
+
+		<h2>8. Service, warranty, liability</h2>
+		<p>Ziving is provided "as is", without warranty of any kind. Blockchain scanning can lag, quotes can
+		expire, and displays can be delayed or incomplete; the chain itself, not our display, is the record of
+		what was paid. To the fullest extent permitted by law, our total liability for any claim connected to
+		the service is limited to the amount you paid us in service fees (scanning credit and featured placement)
+		in the twelve months before the claim. We are not liable for the acts of fundraisers or donors, for lost
+		keys, or for the value of ZEC.</p>
+
+		<h2>9. Changes</h2>
+		<p>We may update these terms; the "last updated" date above changes when we do. Continued use of the
+		service after a change is acceptance of the new terms.</p>
+
+		<h2>10. Contact</h2>
+		<p>Questions about these terms: see the <a href="https://mcp.winbit32.com/v1/ziving" rel="noopener">API
+		documentation</a> or the <a href="https://winbit32.com" rel="noopener">Winbit32</a> site for contact routes.</p>
+	</main>
+
+	<footer class="site-footer">
+		<a href="/">ziving.org</a> · unverified pages by design · donations are gifts between two private parties
+	</footer>
+</body>
+</html>

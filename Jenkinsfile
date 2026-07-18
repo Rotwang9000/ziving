@@ -101,7 +101,7 @@ pipeline {
 					echo "GET $SITE_URL -> $code"
 					[ "$code" = "200" ] || { echo "home not 200"; exit 1; }
 					grep -qi "ziving\\|shielded ZEC\\|fundraising" /tmp/ziving-smoke.html || { echo "home marker missing"; exit 1; }
-					for a in styles.css app.js favicon.svg manage overlay p.html lib/zcash-wallet.js lib/webzjs_keys_and_send_bg.wasm; do
+					for a in styles.css app.js favicon.svg manage overlay p.html terms lib/zcash-wallet.js lib/webzjs_keys_and_send_bg.wasm; do
 						c=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$SITE_URL/$a")
 						echo "  $a -> $c"
 						[ "$c" = "200" ] || { echo "asset $a not 200"; exit 1; }
