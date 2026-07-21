@@ -370,6 +370,21 @@ main { max-width: 920px; margin: 0 auto; padding: 0 1.5rem 4rem; }
 	line-height: 1.45;
 }
 
+.campaign-xlink {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	flex-wrap: wrap;
+	margin: 0 0 0.85rem;
+	padding: 0.35rem 0.75rem;
+	border-radius: 999px;
+	background: rgba(127, 177, 139, 0.12);
+	border: 1px solid rgba(127, 177, 139, 0.35);
+	color: var(--muted);
+	font-size: 0.82rem;
+}
+.campaign-xlink a { color: var(--text); font-weight: 600; }
+
 .trust-banner {
 	max-width: 52rem;
 	margin: 0 auto 2rem;

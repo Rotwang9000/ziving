@@ -928,6 +928,11 @@ async function loadCampaign(slug) {
 			page.featured ? el('span', { class: 'status-pill', style: 'margin-left:0.4rem;color:var(--gold);', text: 'Featured' }) : null,
 			el('h1', { class: 'campaign-title', text: page.label || slug }),
 			page.story ? el('p', { class: 'campaign-story', text: page.story }) : null,
+			page.xLink ? el('p', { class: 'campaign-xlink' },
+				'𝕏 linked: ',
+				el('a', { href: page.xLink.url, target: '_blank', rel: 'noopener', text: `@${page.xLink.handle}` }),
+				el('a', { href: page.xLink.proofUrl, target: '_blank', rel: 'noopener', style: 'font-weight:400;', text: '(proof)' })
+			) : null,
 			el('p', { class: 'campaign-unverified', text: 'Unverified campaign — Ziving does not check identity or cause. You are paying this wallet directly.' }),
 			progress,
 			donationsBox);
@@ -1166,6 +1171,7 @@ function initManage() {
 			el('p', { style: 'color:var(--muted);margin:0.35rem 0 0;font-size:0.82rem;',
 				text: `Expires ${page.expires_at ? new Date(page.expires_at).toLocaleString() : '—'}` })
 		);
+		renderXLinkStatus(page.xLink);
 		$('obs-url').textContent = page.urls?.obsPage || overlayUrl(session.slug);
 		const obsOpen = $('obs-open');
 		if (obsOpen) obsOpen.href = $('obs-url').textContent;
@@ -1300,6 +1306,98 @@ function initManage() {
 				el('p', { html: '<strong>New recovery code — shown only once. Store it offline.</strong>' }),
 				el('code', { text: out.recoveryCode })
 			);
+		} catch (err) {
+			box.hidden = false;
+			box.className = 'result-box result-box--warn';
+			box.textContent = err.message;
+		} finally {
+			btn.disabled = false;
+		}
+	});
+
+	// ── X (Twitter) self-attestation link ────────────────────────────
+	function renderXLinkStatus(xLink) {
+		const box = $('xlink-status');
+		const startBlock = $('xlink-start-block');
+		const verifyBlock = $('xlink-verify-block');
+		if (!box) return;
+		if (xLink?.handle) {
+			const unlinkBtn = el('button', { type: 'button', class: 'btn btn--ghost btn--sm', text: 'Unlink' });
+			unlinkBtn.addEventListener('click', unlinkXAccount);
+			box.replaceChildren(
+				el('p', { class: 'field__hint', style: 'margin:0;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;' },
+					'Linked: ',
+					el('a', { href: xLink.url, target: '_blank', rel: 'noopener', text: `@${xLink.handle}` }),
+					xLink.proofUrl ? el('a', { href: xLink.proofUrl, target: '_blank', rel: 'noopener', text: '(proof)' }) : null,
+					unlinkBtn)
+			);
+			if (startBlock) startBlock.hidden = true;
+			if (verifyBlock) verifyBlock.hidden = true;
+		} else {
+			box.replaceChildren();
+			if (startBlock) startBlock.hidden = false;
+		}
+	}
+
+	async function unlinkXAccount() {
+		if (!globalThis.confirm('Unlink this X account from your page?')) return;
+		try {
+			await api(`/v1/ziving/page/${encodeURIComponent(session.slug)}/x-link`, {
+				method: 'DELETE',
+				headers: { 'x-overlay-token': session.ownerToken }
+			});
+			await refreshStatus();
+		} catch (err) {
+			const box = $('xlink-result');
+			box.hidden = false;
+			box.className = 'result-box result-box--warn';
+			box.textContent = err.message;
+		}
+	}
+
+	$('xlink-start')?.addEventListener('click', async () => {
+		const btn = $('xlink-start');
+		const box = $('xlink-result');
+		box.hidden = true;
+		btn.disabled = true;
+		try {
+			const out = await api(`/v1/ziving/page/${encodeURIComponent(session.slug)}/x-link/start`, {
+				method: 'POST',
+				headers: { 'x-overlay-token': session.ownerToken }
+			});
+			$('xlink-code-hint').textContent = `Post a public tweet containing exactly: ${out.code}`;
+			$('xlink-verify-block').hidden = false;
+		} catch (err) {
+			box.hidden = false;
+			box.className = 'result-box result-box--warn';
+			box.textContent = err.message;
+		} finally {
+			btn.disabled = false;
+		}
+	});
+
+	$('xlink-verify')?.addEventListener('click', async () => {
+		const btn = $('xlink-verify');
+		const box = $('xlink-result');
+		const tweetUrl = String($('xlink-tweet-url')?.value || '').trim();
+		box.hidden = true;
+		if (!tweetUrl) {
+			box.hidden = false;
+			box.className = 'result-box result-box--warn';
+			box.textContent = 'Paste the tweet URL first.';
+			return;
+		}
+		btn.disabled = true;
+		try {
+			await api(`/v1/ziving/page/${encodeURIComponent(session.slug)}/x-link/verify`, {
+				method: 'POST',
+				headers: { 'x-overlay-token': session.ownerToken },
+				body: JSON.stringify({ tweetUrl })
+			});
+			await refreshStatus();
+			box.hidden = false;
+			box.className = 'result-box';
+			box.textContent = 'Linked.';
 		} catch (err) {
 			box.hidden = false;
 			box.className = 'result-box result-box--warn';

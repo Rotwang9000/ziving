@@ -11,7 +11,7 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="styles.css?v=20260718a" />
+	<link rel="stylesheet" href="styles.css?v=20260721a" />
 </head>
 <body data-page="manage">
 	<div class="atmos" aria-hidden="true"></div>
@@ -149,6 +149,30 @@
 			</div>
 
 			<div class="card manage-block">
+				<h3>Link your X (Twitter) account</h3>
+				<p style="color:var(--muted);font-size:0.9rem;margin:0 0 1rem;">
+					Optional. Post a short code from your X account and we'll show a link to it on your page — a
+					reputation you're staking, not an identity check. We don't verify who you are, only that you can
+					post there.
+				</p>
+				<div id="xlink-status" style="margin-bottom:0.75rem;"></div>
+				<div id="xlink-start-block">
+					<button type="button" class="btn btn--ghost btn--sm" id="xlink-start">Get a code to post</button>
+				</div>
+				<div id="xlink-verify-block" hidden style="margin-top:0.75rem;">
+					<p class="field__hint" id="xlink-code-hint"></p>
+					<div class="field">
+						<label for="xlink-tweet-url">Tweet URL</label>
+						<input id="xlink-tweet-url" type="url" placeholder="https://x.com/you/status/…" autocomplete="off" />
+					</div>
+					<div class="form-actions" style="justify-content:flex-start;">
+						<button type="button" class="btn btn--primary btn--sm" id="xlink-verify">Verify</button>
+					</div>
+				</div>
+				<div id="xlink-result" style="margin-top:0.75rem;" hidden></div>
+			</div>
+
+			<div class="card manage-block">
 				<h3>Overlay &amp; API</h3>
 				<p style="color:var(--muted);font-size:0.9rem;margin:0 0 0.85rem;">
 					OBS browser source (transparent background) and the public JSON events feed for this page.
@@ -188,6 +212,6 @@
 		<a href="/">ziving.org</a> · owner tools · unverified pages by design · no accounts · <a href="/terms">Terms</a>
 	</footer>
 
-	<script src="app.js?v=20260718a" type="module"></script>
+	<script src="app.js?v=20260721a" type="module"></script>
 </body>
 </html>
