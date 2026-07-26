@@ -13,7 +13,7 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="styles.css?v=20260726d" />
+	<link rel="stylesheet" href="styles.css?v=20260726e" />
 </head>
 <body data-page="home">
 	<div class="atmos" aria-hidden="true"></div>
@@ -108,7 +108,7 @@
 				</li>
 				<li>
 					<strong>Say who benefits</strong>
-					<span>Pick your page address, then answer two questions — who benefits and what they get. A goal and a longer story are optional. Prepay a little scanning credit in ZEC and your page is live immediately on grace credit.</span>
+					<span>Name the cause and answer two questions — who benefits and what they get. Your page address is written for you. A goal and a longer story are optional. Prepay a little scanning credit in ZEC and your page is live immediately on grace credit.</span>
 				</li>
 				<li>
 					<strong>Share &amp; celebrate</strong>
@@ -142,26 +142,29 @@
 		<div class="dialog-inner wizard">
 			<header class="wizard__head">
 				<h2 id="create-title">Start your page</h2>
-				<p class="sub">Four short steps. No sign-up, no identity checks, no essay — just who benefits and what they get. Pages stay unverified on purpose.</p>
+				<p class="sub">Three short steps. No sign-up, no identity checks, no essay — just who benefits and what they get. Pages stay unverified on purpose.</p>
 				<ol class="wizard__steps" id="wizard-steps" aria-label="Progress">
 					<li data-step="1" class="is-active">Cause</li>
 					<li data-step="2">Wallet</li>
-					<li data-step="3">Plan</li>
-					<li data-step="4">Go live</li>
+					<li data-step="3">Go live</li>
 				</ol>
 			</header>
 
 			<form id="create-form">
 				<section class="wizard-pane is-active" data-pane="1">
-				<div class="field">
-					<label for="label">What's the cause?</label>
-					<input id="label" name="label" maxlength="60" placeholder="Alice runs for the shelter" />
-				</div>
-				<div class="field">
-					<label for="slug">Page URL</label>
-					<input id="slug" name="slug" pattern="[a-z0-9-]{5,48}" minlength="5" placeholder="alice-marathon" autocomplete="off" />
-					<p class="field__hint">ziving.org/p/<strong id="slug-preview">your-slug</strong></p>
-				</div>
+					<div class="field">
+						<label for="label">What's the cause?</label>
+						<input id="label" name="label" maxlength="60" placeholder="Alice runs for the shelter" />
+						<p class="field__hint slug-line">
+							<span>ziving.org/p/<strong id="slug-preview">your-slug</strong></span>
+							<button type="button" class="link-btn" id="slug-edit">edit</button>
+						</p>
+					</div>
+					<div class="field" id="slug-field" hidden>
+						<label for="slug">Page URL</label>
+						<input id="slug" name="slug" pattern="[a-z0-9-]{5,48}" minlength="5" placeholder="alice-marathon" autocomplete="off" />
+						<p class="field__hint">5–48 characters: lowercase letters, numbers and dashes.</p>
+					</div>
 					<div class="field">
 						<label for="beneficiaryType">Who benefits?</label>
 						<select id="beneficiaryType" name="beneficiaryType">
@@ -259,21 +262,6 @@
 				</section>
 
 				<section class="wizard-pane" data-pane="3" hidden>
-					<div class="field">
-						<label for="amountUsd">Prepay scanning</label>
-						<select id="amountUsd" name="amountUsd">
-							<option value="5">$5 (~50 days at $0.10/day)</option>
-							<option value="10" selected>$10 (~100 days)</option>
-							<option value="25">$25 (~250 days)</option>
-						</select>
-						<p class="field__hint">Paid in ZEC after you create. Grace credit (~1.5 days) keeps the page live while it confirms.</p>
-					</div>
-					<div class="plan-callout">
-						<p><strong>Want the homepage?</strong> After you're live, open Manage and buy featured placement from <strong>$5/day</strong> — or ask an agent via MCP <code>ziving_feature</code>.</p>
-					</div>
-				</section>
-
-				<section class="wizard-pane" data-pane="4" hidden>
 					<div id="create-review" class="create-review"></div>
 					<p class="field__hint">By creating a page you agree to the <a href="/terms" target="_blank" rel="noopener">terms</a>: donations are direct wallet-to-wallet gifts between you and your givers — Ziving is not a party to them and never holds the money.</p>
 					<div id="create-result" hidden></div>
@@ -289,6 +277,6 @@
 		</div>
 	</dialog>
 
-	<script src="app.js?v=20260726d" type="module"></script>
+	<script src="app.js?v=20260726e" type="module"></script>
 </body>
 </html>

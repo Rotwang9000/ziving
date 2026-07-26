@@ -3,7 +3,10 @@
 const API_BASE = (document.documentElement.dataset.api || 'https://mcp.winbit32.com').replace(/\/$/u, '');
 const ZIVING_ORIGIN = location.origin.replace(/\/$/u, '');
 const POLL_MS = 10_000;
-const WIZARD_STEPS = 4;
+const WIZARD_STEPS = 3;
+/** Default prepaid scanning credit. The amount is a detail, not a decision —
+ *  it moves to the payment card afterwards, where it can be changed. */
+const DEFAULT_TOPUP_USD = 5;
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...kids) => {
@@ -35,10 +38,16 @@ async function api(path, opts = {}) {
 	// Merge headers LAST — spreading opts after headers let x-overlay-token
 	// calls clobber the whole headers object, dropping content-type, so
 	// Fastify ignored the JSON body (a $5 top-up fell back to the $2 minimum).
+	// …and only claim JSON when there is a body: Fastify rejects an empty body
+	// under content-type: application/json ("Body cannot be empty…"), which is
+	// what broke the bodiless POST x-link/start and DELETE x-link.
 	const { headers, ...rest } = opts;
 	const res = await fetch(`${API_BASE}${path}`, {
 		...rest,
-		headers: { 'content-type': 'application/json', ...(headers || {}) }
+		headers: {
+			...(rest.body != null ? { 'content-type': 'application/json' } : {}),
+			...(headers || {})
+		}
 	});
 	const body = await res.json().catch(() => ({}));
 	if (!res.ok) {
@@ -137,14 +146,24 @@ function zcashPayUri({ payTo, amountDisplay, memo }) {
 	return q.length ? `${parts[0]}?${q.join('&')}` : parts[0];
 }
 
+/** Days of scanning a dollar buys, for the credit dropdown's labels. */
+const SCAN_DAYS_PER_USD = 10;
+const TOPUP_CHOICES_USD = [5, 10, 25];
+
 /**
  * Render a tidy ZEC memo-quote payment card into `root`.
  * payment: { payTo, memo, amount: { display }, credit?, expiresAt?, confirmations? }
+ *
+ * @param amountPicker  Optional `{ usd, onChange(usd) -> payment }` — lets the
+ *   payer re-quote from the payment card itself. The amount belongs next to
+ *   the address and memo, not in a wizard step of its own: it only matters
+ *   once someone is actually about to pay.
  */
 function renderPaymentCard(root, payment, {
 	title = 'Fund scanning',
 	graceNote = '',
-	extraLinks = null
+	extraLinks = null,
+	amountPicker = null
 } = {}) {
 	if (!root) return;
 	const payTo = payment?.payTo || '';
@@ -197,6 +216,39 @@ function renderPaymentCard(root, payment, {
 		}
 	});
 
+	let pickerNode = null;
+	if (amountPicker) {
+		const select = el('select', { class: 'pay-card__amount-select', 'aria-label': 'Scanning credit to buy' });
+		for (const usd of TOPUP_CHOICES_USD) {
+			select.append(el('option', {
+				value: String(usd),
+				...(usd === amountPicker.usd ? { selected: 'selected' } : {}),
+				text: `$${usd} · ~${usd * SCAN_DAYS_PER_USD} days`
+			}));
+		}
+		const err = el('span', { class: 'field__hint', hidden: 'true' });
+		select.addEventListener('change', async () => {
+			const usd = Number(select.value);
+			select.disabled = true;
+			err.hidden = true;
+			try {
+				const next = await amountPicker.onChange(usd);
+				// Re-render in place: a new quote means a new amount, memo and QR,
+				// and paying against the old memo would credit the old amount.
+				renderPaymentCard(root, next, {
+					title, graceNote, extraLinks,
+					amountPicker: { ...amountPicker, usd }
+				});
+			} catch (e) {
+				select.disabled = false;
+				select.value = String(amountPicker.usd);
+				err.textContent = e?.message || 'Could not re-quote — the amount above still stands.';
+				err.hidden = false;
+			}
+		});
+		pickerNode = el('span', { class: 'pay-card__amount-pick' }, select, err);
+	}
+
 	root.hidden = false;
 	root.className = 'pay-card';
 	root.replaceChildren(...[
@@ -204,7 +256,8 @@ function renderPaymentCard(root, payment, {
 		el('p', { class: 'pay-card__amount' },
 			el('span', { class: 'pay-card__amount-val', text: amount ? `${amount} ZEC` : 'ZEC' }),
 			credit ? el('span', { class: 'pay-card__credit', text: `→ ${credit} scanning credit` }) : null,
-			copyAmtBtn),
+			copyAmtBtn,
+			pickerNode),
 		el('div', { class: 'pay-card__body' },
 			qrWrap,
 			qrFallback,
@@ -453,6 +506,9 @@ function initHome() {
 	const form = $('create-form');
 	const slugInput = $('slug');
 	const slugPreview = $('slug-preview');
+	// The URL is a consequence of the title, not a separate decision — derive
+	// it until the owner edits it themselves, then never touch it again.
+	let slugTouched = false;
 	let step = 1;
 	let maxReached = 1;
 	let walletMode = 'create';
@@ -531,7 +587,7 @@ function initHome() {
 			const review = $('create-review');
 			const slug = normaliseSlug(slugInput.value) || 'your-slug';
 			const { address } = getWalletCredentials();
-			const usd = $('amountUsd').value;
+			const usd = DEFAULT_TOPUP_USD;
 			review.hidden = false;
 			// Built with text nodes — the label is user input and must never
 			// reach innerHTML.
@@ -544,7 +600,9 @@ function initHome() {
 				$('outcome').value.trim()
 					? el('p', { class: 'field__hint', text: `They get: ${$('outcome').value.trim()}` })
 					: null,
-				el('p', { text: 'Prepay scanning credit: ' }, el('strong', { text: `$${usd}` })),
+				el('p', { text: 'Prepay scanning credit: ' },
+					el('strong', { text: `$${usd}` }),
+					el('span', { class: 'field__hint', style: 'margin:0 0 0 0.4rem;', text: `(~${DEFAULT_TOPUP_USD * SCAN_DAYS_PER_USD} days — change it on the next screen)` })),
 				el('p', { class: 'field__hint', text: 'Receive: ' },
 					el('code', { text: address ? `${address.slice(0, 18)}…` : '(missing)' })),
 				walletMode === 'manual'
@@ -579,7 +637,9 @@ function initHome() {
 		if (n === 1) {
 			const slug = normaliseSlug(slugInput.value);
 			if (slug.length < 5) {
-				if (!silent) flagInvalid('slug');
+				// Auto-derived and too short (a two-word title, say) — the box is
+				// folded away, so open it before pointing at it.
+				if (!silent) { revealSlugField(); flagInvalid('slug'); }
 				return false;
 			}
 			slugInput.value = slug;
@@ -622,6 +682,9 @@ function initHome() {
 	function resetWizard() {
 		pageCreated = false;
 		maxReached = 1;
+		// A revealed URL box means the owner took the slug over by hand; leave
+		// it (and their value) alone rather than overwriting from the title.
+		if ($('slug-field')?.hidden !== false) slugTouched = false;
 		setWalletCredentials('', '');
 		if ($('wallet-created')) $('wallet-created').hidden = true;
 		if ($('wallet-phrase')) $('wallet-phrase').textContent = '';
@@ -669,12 +732,35 @@ function initHome() {
 	});
 	$('wizard-back')?.addEventListener('click', () => setStep(step - 1, { force: true }));
 
+	function paintSlug() {
+		if (slugPreview) slugPreview.textContent = normaliseSlug(slugInput.value) || 'your-slug';
+	}
+
+	function revealSlugField() {
+		const field = $('slug-field');
+		if (!field) return;
+		field.hidden = false;
+		$('slug-edit')?.setAttribute('hidden', 'hidden');
+	}
+
 	slugInput?.addEventListener('input', () => {
-		const s = normaliseSlug(slugInput.value) || 'your-slug';
-		if (slugPreview) slugPreview.textContent = s;
+		slugTouched = true;
+		paintSlug();
 		updateCreateButton();
 	});
-	$('label')?.addEventListener('input', updateCreateButton);
+	$('slug-edit')?.addEventListener('click', () => {
+		revealSlugField();
+		slugInput?.focus();
+	});
+	$('label')?.addEventListener('input', () => {
+		if (!slugTouched && slugInput) {
+			// Trim to the 48-char limit on a dash so the tail is never a
+			// half-word, and drop any dash the truncation left dangling.
+			slugInput.value = normaliseSlug($('label').value).slice(0, 48).replace(/-+$/u, '');
+			paintSlug();
+		}
+		updateCreateButton();
+	});
 
 	for (const btn of document.querySelectorAll('.wallet-mode')) {
 		btn.addEventListener('click', () => setWalletMode(btn.dataset.walletMode));
@@ -789,7 +875,7 @@ function initHome() {
 		submit.disabled = true;
 		try {
 			const slug = normaliseSlug(slugInput.value);
-			const amountUsd = Number($('amountUsd').value);
+			const amountUsd = DEFAULT_TOPUP_USD;
 			const { ufvk, address } = getWalletCredentials();
 			const payload = {
 				slug,
@@ -842,6 +928,10 @@ function initHome() {
 						...recoveryBits,
 						el('div', { class: 'form-actions', style: 'justify-content:flex-start;margin-top:0.5rem;' }, copyTokenBtn));
 
+				const xHint = el('p', { class: 'field__hint', style: 'margin:0.6rem 0 0;' },
+					document.createTextNode('Pages are unverified by design. If you want donors to have something to check, '),
+					el('a', { href: `/manage?slug=${encodeURIComponent(slug)}#x-link`, text: 'link your 𝕏 account' }),
+					document.createTextNode(' from Manage.'));
 				const actions = el('div', { class: 'create-success__actions' },
 					el('a', { class: 'btn btn--primary', href: url, text: 'View page' }),
 					el('a', { class: 'btn btn--ghost', href: `/manage?slug=${encodeURIComponent(slug)}`, text: 'Manage' }));
@@ -852,12 +942,24 @@ function initHome() {
 						document.createTextNode(' on grace credit — share it while you fund scanning.')),
 				];
 				// Manual: token first so they cannot miss the one-time secret.
-				if (isManual) kids.push(tokenBox, actions, payHost);
-				else kids.push(actions, tokenBox, payHost);
+				if (isManual) kids.push(tokenBox, actions, xHint, payHost);
+				else kids.push(actions, xHint, tokenBox, payHost);
 				result.replaceChildren(...kids);
 				renderPaymentCard(payHost, out.payment, {
 					title: 'Fund scanning',
-					graceNote: out.graceNote || ''
+					graceNote: out.graceNote || '',
+					amountPicker: {
+						usd: DEFAULT_TOPUP_USD,
+						onChange: (usd) => api(`/v1/overlay/${encodeURIComponent(out.overlayId)}/topup`, {
+							method: 'POST',
+							headers: { 'x-overlay-token': out.ownerToken },
+							body: JSON.stringify({ amountUsdCents: Math.round(usd * 100) })
+						})
+					},
+					// Was a line in the old "Plan" step; it belongs where someone
+					// has a live page to promote, not before they have one.
+					extraLinks: el('p', { class: 'field__hint', style: 'margin-top:0.75rem;' },
+						document.createTextNode('Want the homepage? Open Manage and book featured placement from $5/day.'))
 				});
 			}
 			updateCreateButton();
@@ -1010,7 +1112,15 @@ async function loadCampaign(slug) {
 			// is disclosed rather than quietly swapped in.
 			page.contentUpdatedAt ? el('p', { class: 'campaign-edited',
 				text: `Wording edited ${new Date(page.contentUpdatedAt).toLocaleDateString()}` }) : null,
-			el('p', { class: 'campaign-unverified', text: 'Unverified campaign — Ziving does not check identity or cause. You are paying this wallet directly.' }),
+			el('p', { class: 'campaign-unverified' },
+				document.createTextNode('Unverified campaign — Ziving does not check identity or cause. You are paying this wallet directly.'),
+				page.xLink
+					? null
+					: el('a', {
+						class: 'campaign-unverified__cta',
+						href: `/manage?slug=${encodeURIComponent(slug)}#x-link`,
+						text: 'Run this page? Link an 𝕏 account →'
+					})),
 			progress,
 			donationsBox);
 
@@ -1129,13 +1239,27 @@ function initManage() {
 	}
 	setUnlockMode(tokenField?.value ? 'token' : 'wallet');
 
+	/** Draw the eye to one card — the cards only exist after unlocking, so a
+	 *  plain #hash lands nowhere. */
+	function highlightCard(id) {
+		const card = $(id);
+		if (!card) return;
+		card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		card.classList.add('is-flagged');
+		setTimeout(() => card.classList.remove('is-flagged'), 2400);
+	}
+
 	async function enterSession(slug, overlayId, ownerToken, { remember = true } = {}) {
 		session = { slug, overlayId, ownerToken };
 		if (remember && $('m-remember')?.checked) saveOwnerCredentials(slug, overlayId, ownerToken);
 		unlockForm.hidden = true;
 		panel.hidden = false;
+		// Read before replaceState drops it: /manage?slug=…#x-link is how a
+		// campaign page sends its owner straight to the X-link card.
+		const wanted = location.hash.slice(1);
 		await refreshStatus();
 		history.replaceState(null, '', `${location.pathname}?slug=${encodeURIComponent(slug)}`);
+		if (wanted) highlightCard(wanted);
 	}
 
 	// ── Wallet connect → page list ──────────────────────────────────
