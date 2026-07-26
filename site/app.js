@@ -163,7 +163,8 @@ function renderPaymentCard(root, payment, {
 	title = 'Fund scanning',
 	graceNote = '',
 	extraLinks = null,
-	amountPicker = null
+	amountPicker = null,
+	flexibleAmount = false
 } = {}) {
 	if (!root) return;
 	const payTo = payment?.payTo || '';
@@ -236,7 +237,7 @@ function renderPaymentCard(root, payment, {
 				// Re-render in place: a new quote means a new amount, memo and QR,
 				// and paying against the old memo would credit the old amount.
 				renderPaymentCard(root, next, {
-					title, graceNote, extraLinks,
+					title, graceNote, extraLinks, flexibleAmount,
 					amountPicker: { ...amountPicker, usd }
 				});
 			} catch (e) {
@@ -278,6 +279,12 @@ function renderPaymentCard(root, payment, {
 		el('div', { class: 'form-actions', style: 'justify-content:flex-start;align-items:center;gap:0.75rem;margin-top:0.75rem;flex-wrap:wrap;' },
 			payWalletBtn,
 			el('span', { class: 'field__hint', style: 'margin:0;', text: 'exact amount + memo prefilled — or scan the QR with any wallet' })),
+		// True of credit quotes only: fixed products (a featured day, a lost-key
+		// unlock) still need their price paid.
+		flexibleAmount
+			? el('p', { class: 'field__hint', style: 'margin:0.5rem 0 0;',
+				text: "Send more or less if it's easier — you're credited whatever you actually send, at this quote's rate." })
+			: null,
 		graceNote ? el('p', { class: 'pay-card__note', text: graceNote }) : null,
 		extraLinks
 	// replaceChildren coerces null to a literal "null" text node — filter it.
@@ -948,6 +955,7 @@ function initHome() {
 				renderPaymentCard(payHost, out.payment, {
 					title: 'Fund scanning',
 					graceNote: out.graceNote || '',
+					flexibleAmount: true,
 					amountPicker: {
 						usd: DEFAULT_TOPUP_USD,
 						onChange: (usd) => api(`/v1/overlay/${encodeURIComponent(out.overlayId)}/topup`, {
@@ -1018,6 +1026,33 @@ function initHome() {
  * glance. Rendered as a description list because that is what it is, and
  * partial answers still show — half of it beats none.
  */
+/** X counts every link as 23 characters, whatever its real length. */
+const X_MAX_CHARS = 280;
+const X_LINK_WEIGHT = 23;
+
+/**
+ * A ready-to-post proof tweet: what the page is, who it helps, the link and
+ * the nonce. Tries the fullest version first and falls back a line at a time,
+ * so nobody is handed a post X will refuse — the link and the code are never
+ * dropped, since they are the two things the post exists for.
+ */
+function composeXPost({ label, who, url, code }) {
+	const tail = `Proof I run this page: ${code}`;
+	const whoLine = who ? `Raising shielded ZEC for ${who}.` : null;
+	const cost = (lines) => lines.reduce((n, l) => n + (l === url ? X_LINK_WEIGHT : l.length) + 2, -2);
+	const candidates = [
+		[label, whoLine, url, tail],
+		[label, url, tail],
+		[whoLine, url, tail],
+		[url, tail]
+	];
+	for (const parts of candidates) {
+		const lines = parts.filter(Boolean);
+		if (cost(lines) <= X_MAX_CHARS) return lines.join('\n\n');
+	}
+	return `${url}\n\n${tail}`;
+}
+
 function benefitBlock(benefit) {
 	if (!benefit || (!benefit.who && !benefit.what)) return null;
 	const rows = [];
@@ -1239,6 +1274,10 @@ function initManage() {
 	}
 	setUnlockMode(tokenField?.value ? 'token' : 'wallet');
 
+	/** Last page payload from refreshStatus — the X post composer reads its
+	 *  title and beneficiary so the owner never has to retype them. */
+	let lastPage = null;
+
 	/** Draw the eye to one card — the cards only exist after unlocking, so a
 	 *  plain #hash lands nowhere. */
 	function highlightCard(id) {
@@ -1354,6 +1393,7 @@ function initManage() {
 
 	async function refreshStatus() {
 		const page = await api(`/v1/ziving/page/${encodeURIComponent(session.slug)}`);
+		lastPage = page;
 		session.overlayId = page.overlayId;
 		const card = $('status-card');
 		const pill = page.active ? 'status-pill status-pill--active' : 'status-pill status-pill--paused';
@@ -1622,7 +1662,7 @@ function initManage() {
 				method: 'POST',
 				headers: { 'x-overlay-token': session.ownerToken }
 			});
-			$('xlink-code-hint').textContent = `Post a public tweet containing exactly: ${out.code}`;
+			showXPost(out.code);
 			$('xlink-verify-block').hidden = false;
 		} catch (err) {
 			box.hidden = false;
@@ -1631,6 +1671,39 @@ function initManage() {
 		} finally {
 			btn.disabled = false;
 		}
+	});
+
+	/** Fill (and keep in sync) the suggested post, its X link and the copy button. */
+	function showXPost(code) {
+		$('xlink-code-hint').textContent = `Your code is ${code} — it must appear in the post.`;
+		const box = $('xlink-post');
+		if (!box) return;
+		box.value = composeXPost({
+			label: lastPage?.label || session.slug,
+			who: lastPage?.benefit?.who || '',
+			url: pageUrl(session.slug),
+			code
+		});
+		const sync = () => {
+			const text = box.value;
+			const open = $('xlink-post-open');
+			if (open) open.href = `https://x.com/intent/post?text=${encodeURIComponent(text)}`;
+			const warn = $('xlink-post-warn');
+			if (!warn) return;
+			// Editing the post is encouraged; deleting the code is the one edit
+			// that silently breaks verification, so say so before they post.
+			const missing = !text.includes(code);
+			warn.textContent = missing
+				? `The code ${code} is no longer in the post — put it back or verification will fail.`
+				: 'The code must stay in the post — that is the whole proof.';
+			warn.classList.toggle('field__hint--warn', missing);
+		};
+		box.oninput = sync;
+		sync();
+	}
+
+	$('xlink-post-copy')?.addEventListener('click', async () => {
+		await copyText($('xlink-post')?.value || '', $('xlink-post-copy'));
 	});
 
 	$('xlink-verify')?.addEventListener('click', async () => {
@@ -1686,6 +1759,7 @@ function initManage() {
 			});
 			renderPaymentCard(box, quote, {
 				title: 'Top-up quote',
+				flexibleAmount: true,
 				graceNote: `Credit (${quote.credit?.usd || ''}) lands after ${quote.confirmations?.required ?? 8} confirmations.`
 			});
 		} catch (err) {
