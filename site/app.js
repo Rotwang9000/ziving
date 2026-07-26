@@ -385,6 +385,8 @@ async function loadFeatured() {
 		list.replaceChildren(...campaigns.map((c) =>
 			el('a', { class: 'featured-item', href: c.urls?.page || pageUrl(c.slug) },
 				el('p', { class: 'featured-item__title', text: c.label || c.slug }),
+				// Who it helps is the reason to click, so it outranks the totals.
+				c.benefit?.who ? el('p', { class: 'featured-item__who', text: `For ${c.benefit.who}` }) : null,
 				el('p', { class: 'featured-item__meta',
 					text: `${fmtZec(c.raised?.zec)} raised · ${c.raised?.donationCount ?? 0} gifts` }))
 		));
@@ -460,6 +462,20 @@ function initHome() {
 	loadActivity();
 	setInterval(loadActivity, 30_000);
 
+	// Steer the "who, specifically?" example to match the answer just given —
+	// the point of the structured fields is that nobody has to invent a form
+	// of words, so show them one that fits.
+	const BENEFICIARY_EXAMPLES = {
+		self: "Me — I'm a solo developer",
+		group: 'Our village football club, 22 players',
+		others: '30 pupils at a village school in Mongolia',
+		public: 'Anyone who uses Zcash'
+	};
+	$('beneficiaryType')?.addEventListener('change', (ev) => {
+		const example = BENEFICIARY_EXAMPLES[ev.target.value];
+		if (example) $('beneficiary').placeholder = example;
+	});
+
 	function setWalletMode(mode) {
 		walletMode = mode;
 		for (const btn of document.querySelectorAll('.wallet-mode')) {
@@ -522,6 +538,12 @@ function initHome() {
 			review.replaceChildren(...[
 				el('p', {}, el('strong', { text: $('label').value.trim() || slug })),
 				el('p', { text: 'URL: ' }, el('code', { text: pageUrl(slug) })),
+				$('beneficiary').value.trim()
+					? el('p', { class: 'field__hint', text: `Benefits: ${$('beneficiary').value.trim()}` })
+					: null,
+				$('outcome').value.trim()
+					? el('p', { class: 'field__hint', text: `They get: ${$('outcome').value.trim()}` })
+					: null,
 				el('p', { text: 'Prepay scanning credit: ' }, el('strong', { text: `$${usd}` })),
 				el('p', { class: 'field__hint', text: 'Receive: ' },
 					el('code', { text: address ? `${address.slice(0, 18)}…` : '(missing)' })),
@@ -541,17 +563,38 @@ function initHome() {
 		return true;
 	}
 
+	/**
+	 * Focus a field and mark it invalid until it's touched. A bare focus() is
+	 * near-invisible on a <select>, so the outline does the explaining.
+	 */
+	function flagInvalid(id) {
+		const node = $(id);
+		if (!node) return;
+		node.setAttribute('aria-invalid', 'true');
+		node.addEventListener('input', () => node.removeAttribute('aria-invalid'), { once: true });
+		node.focus();
+	}
+
 	function validateStep(n, { silent = false } = {}) {
 		if (n === 1) {
 			const slug = normaliseSlug(slugInput.value);
 			if (slug.length < 5) {
-				if (!silent) slugInput.focus();
+				if (!silent) flagInvalid('slug');
 				return false;
 			}
 			slugInput.value = slug;
 			if (!$('label').value.trim()) {
-				if (!silent) $('label').focus();
+				if (!silent) flagInvalid('label');
 				return false;
+			}
+			// Who benefits and what they get are the two things a donor can't
+			// work out for themselves, so the wizard insists on them even
+			// though the API treats them as optional. "Me" is a fine answer.
+			for (const id of ['beneficiaryType', 'beneficiary', 'outcome']) {
+				if (!$(id)?.value.trim()) {
+					if (!silent) flagInvalid(id);
+					return false;
+				}
 			}
 			return true;
 		}
@@ -751,6 +794,9 @@ function initHome() {
 			const payload = {
 				slug,
 				label: $('label').value.trim() || slug,
+				beneficiaryType: $('beneficiaryType').value || undefined,
+				beneficiary: $('beneficiary').value.trim() || undefined,
+				outcome: $('outcome').value.trim() || undefined,
 				story: $('story').value.trim() || undefined,
 				goalZec: $('goalZec').value ? Number($('goalZec').value) : undefined,
 				ufvk,
@@ -865,6 +911,27 @@ function initHome() {
 
 // ── Campaign page ───────────────────────────────────────────────────
 
+/**
+ * "Who benefits / what they get", above the story so it can be read at a
+ * glance. Rendered as a description list because that is what it is, and
+ * partial answers still show — half of it beats none.
+ */
+function benefitBlock(benefit) {
+	if (!benefit || (!benefit.who && !benefit.what)) return null;
+	const rows = [];
+	if (benefit.who) {
+		rows.push(el('dt', { text: 'Who benefits' }));
+		rows.push(el('dd', {},
+			document.createTextNode(benefit.who),
+			benefit.typeLabel ? el('span', { class: 'benefit__tag', text: benefit.typeLabel }) : null));
+	}
+	if (benefit.what) {
+		rows.push(el('dt', { text: 'What they get' }));
+		rows.push(el('dd', { text: benefit.what }));
+	}
+	return el('dl', { class: 'campaign-benefit' }, ...rows);
+}
+
 async function loadCampaign(slug) {
 	const root = $('campaign-root');
 	try {
@@ -927,6 +994,7 @@ async function loadCampaign(slug) {
 			el('span', { class: statusClass, text: page.active ? 'Live' : 'Paused' }),
 			page.featured ? el('span', { class: 'status-pill', style: 'margin-left:0.4rem;color:var(--gold);', text: 'Featured' }) : null,
 			el('h1', { class: 'campaign-title', text: page.label || slug }),
+			benefitBlock(page.benefit),
 			page.story ? el('p', { class: 'campaign-story', text: page.story }) : null,
 			page.xLink ? el('p', {
 				class: 'campaign-xlink',

@@ -13,7 +13,7 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="styles.css?v=20260726a" />
+	<link rel="stylesheet" href="styles.css?v=20260726b" />
 </head>
 <body data-page="home">
 	<div class="atmos" aria-hidden="true"></div>
@@ -142,9 +142,9 @@
 		<div class="dialog-inner wizard">
 			<header class="wizard__head">
 				<h2 id="create-title">Start your page</h2>
-				<p class="sub">Four short steps. No sign-up — and no identity checks. Pages stay unverified on purpose.</p>
+				<p class="sub">Four short steps. No sign-up, no identity checks, no essay — just who benefits and what they get. Pages stay unverified on purpose.</p>
 				<ol class="wizard__steps" id="wizard-steps" aria-label="Progress">
-					<li data-step="1" class="is-active">Story</li>
+					<li data-step="1" class="is-active">Cause</li>
 					<li data-step="2">Wallet</li>
 					<li data-step="3">Plan</li>
 					<li data-step="4">Go live</li>
@@ -163,13 +163,33 @@
 					<p class="field__hint">ziving.org/p/<strong id="slug-preview">your-slug</strong></p>
 				</div>
 					<div class="field">
-						<label for="story">Your story (public, optional)</label>
-						<textarea id="story" name="story" maxlength="4000" placeholder="Why you're fundraising…"></textarea>
+						<label for="beneficiaryType">Who benefits?</label>
+						<select id="beneficiaryType" name="beneficiaryType">
+							<option value="" selected>Choose one…</option>
+							<option value="self">Me</option>
+							<option value="group">A group I'm part of</option>
+							<option value="others">Other people</option>
+							<option value="public">A public good — anyone</option>
+						</select>
+					</div>
+					<div class="field">
+						<label for="beneficiary">Who, specifically?</label>
+						<input id="beneficiary" name="beneficiary" maxlength="90" placeholder="30 pupils at a village school in Mongolia" autocomplete="off" />
+						<p class="field__hint">One line. This is the first thing donors read.</p>
+					</div>
+					<div class="field">
+						<label for="outcome">What will they get?</label>
+						<input id="outcome" name="outcome" maxlength="140" placeholder="Ten refurbished laptops and a year of internet" autocomplete="off" />
+						<p class="field__hint">The thing that exists afterwards — not the money.</p>
 					</div>
 					<div class="field">
 						<label for="goalZec">Goal in ZEC (optional)</label>
 						<input id="goalZec" name="goalZec" type="number" min="0" step="any" placeholder="10" />
 					</div>
+					<details class="field field--fold">
+						<summary>Add a longer story (optional)</summary>
+						<textarea id="story" name="story" maxlength="4000" placeholder="Background, links, who you are — only if it helps."></textarea>
+					</details>
 				</section>
 
 				<section class="wizard-pane" data-pane="2" hidden>
@@ -269,6 +289,6 @@
 		</div>
 	</dialog>
 
-	<script src="app.js?v=20260726a" type="module"></script>
+	<script src="app.js?v=20260726b" type="module"></script>
 </body>
 </html>

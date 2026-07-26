@@ -259,6 +259,11 @@ main { max-width: 920px; margin: 0 auto; padding: 0 1.5rem 4rem; }
 	font-weight: 500;
 	margin: 0 0 0.25rem;
 }
+.featured-item__who {
+	color: var(--text);
+	font-size: 0.9rem;
+	margin: 0 0 0.3rem;
+}
 .featured-item__meta {
 	color: var(--muted);
 	font-size: 0.88rem;
@@ -354,6 +359,47 @@ main { max-width: 920px; margin: 0 auto; padding: 0 1.5rem 4rem; }
 	margin: 0 0 0.5rem;
 	font-size: clamp(1.6rem, 4vw, 2.2rem);
 	font-weight: 500;
+}
+/* Who benefits / what they get — the bit a donor should be able to read
+   without reading. Sits above the story and outweighs it visually. */
+.campaign-benefit {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 0.35rem 1rem;
+	margin: 0 0 1rem;
+	padding: 0.9rem 1rem;
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.035);
+	border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.campaign-benefit dt {
+	color: var(--muted);
+	font-size: 0.72rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	white-space: nowrap;
+	padding-top: 0.15rem;
+}
+.campaign-benefit dd {
+	margin: 0;
+	color: var(--text);
+	font-size: 1rem;
+	line-height: 1.45;
+}
+.benefit__tag {
+	display: inline-block;
+	margin-left: 0.5rem;
+	padding: 0.1rem 0.5rem;
+	border-radius: 999px;
+	background: rgba(127, 177, 139, 0.14);
+	border: 1px solid rgba(127, 177, 139, 0.3);
+	color: var(--muted);
+	font-size: 0.7rem;
+	white-space: nowrap;
+}
+@media (max-width: 30rem) {
+	.campaign-benefit { grid-template-columns: 1fr; gap: 0.15rem; }
+	.campaign-benefit dd { margin-bottom: 0.5rem; }
 }
 .campaign-story {
 	white-space: pre-wrap;
@@ -699,6 +745,22 @@ dialog::backdrop {
 	font: inherit;
 }
 .field textarea { min-height: 100px; resize: vertical; }
+.field input[aria-invalid="true"],
+.field select[aria-invalid="true"],
+.field textarea[aria-invalid="true"] {
+	border-color: var(--danger);
+	background: rgba(224, 120, 120, 0.06);
+}
+/* The long story is folded away — it's optional, and an open textarea reads
+   as an obligation to fill it. */
+.field--fold > summary {
+	cursor: pointer;
+	color: var(--muted);
+	font-size: 0.85rem;
+	padding: 0.35rem 0;
+}
+.field--fold > summary:hover { color: var(--text); }
+.field--fold[open] > summary { margin-bottom: 0.5rem; }
 .field__hint { font-size: 0.78rem; color: var(--muted); margin-top: 0.3rem; }
 .field__hint--warn {
 	color: #f0d878;
