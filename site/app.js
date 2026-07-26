@@ -1006,6 +1006,10 @@ async function loadCampaign(slug) {
 				el('a', { href: page.xLink.url, target: '_blank', rel: 'noopener', text: `@${page.xLink.handle}` }),
 				el('a', { href: page.xLink.proofUrl, target: '_blank', rel: 'noopener', style: 'font-weight:400;', text: '(proof)' })
 			) : null,
+			// People may have given based on what this said before, so an edit
+			// is disclosed rather than quietly swapped in.
+			page.contentUpdatedAt ? el('p', { class: 'campaign-edited',
+				text: `Wording edited ${new Date(page.contentUpdatedAt).toLocaleDateString()}` }) : null,
 			el('p', { class: 'campaign-unverified', text: 'Unverified campaign — Ziving does not check identity or cause. You are paying this wallet directly.' }),
 			progress,
 			donationsBox);
@@ -1245,6 +1249,7 @@ function initManage() {
 				text: `Expires ${page.expires_at ? new Date(page.expires_at).toLocaleString() : '—'}` })
 		);
 		renderXLinkStatus(page.xLink);
+		fillEditForm(page);
 		$('obs-url').textContent = page.urls?.obsPage || overlayUrl(session.slug);
 		const obsOpen = $('obs-open');
 		if (obsOpen) obsOpen.href = $('obs-url').textContent;
@@ -1383,6 +1388,58 @@ function initManage() {
 			box.hidden = false;
 			box.className = 'result-box result-box--warn';
 			box.textContent = err.message;
+		} finally {
+			btn.disabled = false;
+		}
+	});
+
+	// ── Edit the public text ─────────────────────────────────────────
+
+	/** Prefill the edit form from the live page, so saving never blanks a field. */
+	function fillEditForm(page) {
+		if (!$('edit-form')) return;
+		$('e-label').value = page.label ?? '';
+		$('e-beneficiaryType').value = page.benefit?.type ?? '';
+		$('e-beneficiary').value = page.benefit?.who ?? '';
+		$('e-outcome').value = page.benefit?.what ?? '';
+		$('e-goalZec').value = page.goalZec ?? '';
+		$('e-story').value = page.story ?? '';
+	}
+
+	$('edit-form')?.addEventListener('submit', async (ev) => {
+		ev.preventDefault();
+		const btn = $('edit-submit');
+		const box = $('edit-result');
+		btn.disabled = true;
+		box.hidden = true;
+		try {
+			// Every field is sent, because the form was prefilled from the live
+			// page — so clearing a box really does mean "remove this".
+			const out = await api(`/v1/ziving/page/${encodeURIComponent(session.slug)}`, {
+				method: 'PATCH',
+				headers: { 'x-overlay-token': session.ownerToken },
+				body: JSON.stringify({
+					label: $('e-label').value.trim(),
+					beneficiaryType: $('e-beneficiaryType').value,
+					beneficiary: $('e-beneficiary').value.trim(),
+					outcome: $('e-outcome').value.trim(),
+					goalZec: $('e-goalZec').value === '' ? null : Number($('e-goalZec').value),
+					story: $('e-story').value.trim()
+				})
+			});
+			box.hidden = false;
+			box.className = 'result-box';
+			box.replaceChildren(
+				el('p', { style: 'margin:0;', text: 'Saved.' }),
+				el('p', { class: 'field__hint', style: 'margin:0.35rem 0 0;' },
+					document.createTextNode('Live at '),
+					el('a', { href: pageUrl(session.slug), target: '_blank', rel: 'noopener', text: pageUrl(session.slug) }))
+			);
+			fillEditForm(out.page);
+		} catch (err) {
+			box.hidden = false;
+			box.className = 'result-box result-box--warn';
+			box.textContent = err?.message || 'Could not save those changes.';
 		} finally {
 			btn.disabled = false;
 		}

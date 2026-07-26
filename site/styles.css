@@ -406,6 +406,11 @@ main { max-width: 920px; margin: 0 auto; padding: 0 1.5rem 4rem; }
 	color: var(--muted);
 	margin: 0 0 0.85rem;
 }
+.campaign-edited {
+	margin: 0 0 0.6rem;
+	color: var(--muted);
+	font-size: 0.78rem;
+}
 .campaign-unverified {
 	margin: 0 0 1.25rem;
 	padding: 0.65rem 0.8rem;
