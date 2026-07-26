@@ -928,7 +928,12 @@ async function loadCampaign(slug) {
 			page.featured ? el('span', { class: 'status-pill', style: 'margin-left:0.4rem;color:var(--gold);', text: 'Featured' }) : null,
 			el('h1', { class: 'campaign-title', text: page.label || slug }),
 			page.story ? el('p', { class: 'campaign-story', text: page.story }) : null,
-			page.xLink ? el('p', { class: 'campaign-xlink' },
+			page.xLink ? el('p', {
+				class: 'campaign-xlink',
+				// The badge only means "whoever runs this page can post as that
+				// account" — say so on hover, so nobody reads it as vetting.
+				title: 'This account posted a code proving it controls this page. Re-checked daily; the badge goes if the post does. Not an identity check — Ziving does not vouch for anyone.'
+			},
 				'𝕏 linked: ',
 				el('a', { href: page.xLink.url, target: '_blank', rel: 'noopener', text: `@${page.xLink.handle}` }),
 				el('a', { href: page.xLink.proofUrl, target: '_blank', rel: 'noopener', style: 'font-weight:400;', text: '(proof)' })
@@ -1329,7 +1334,10 @@ function initManage() {
 					'Linked: ',
 					el('a', { href: xLink.url, target: '_blank', rel: 'noopener', text: `@${xLink.handle}` }),
 					xLink.proofUrl ? el('a', { href: xLink.proofUrl, target: '_blank', rel: 'noopener', text: '(proof)' }) : null,
-					unlinkBtn)
+					unlinkBtn),
+				// Otherwise a badge that vanished after the owner tidied up their
+				// timeline would look like a bug on our side.
+				el('p', { class: 'field__hint', style: 'margin:0.35rem 0 0;', text: 'Keep the post up — we re-check it daily, and the badge is removed if it goes. Renaming your account is fine.' })
 			);
 			if (startBlock) startBlock.hidden = true;
 			if (verifyBlock) verifyBlock.hidden = true;
