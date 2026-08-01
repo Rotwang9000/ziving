@@ -34,6 +34,7 @@ import {
 	toOrchardBundle,
 	mountWinbit32WalletBar,
 	bytesToHex,
+	assertRandomSourceHealthy,
 } from '@winbit32/wallet-kit';
 import { extractLocketShareText } from './locket-chunk.mjs';
 
@@ -177,6 +178,12 @@ function looksLikePhrase(text) {
  * one-time seed phrase (must be shown to the user to save).
  */
 export async function createDonationWallet() {
+	// @scure/bip39 takes no RNG argument — it reads crypto.getRandomValues
+	// directly, which is the right design and also means nothing between
+	// here and the phrase ever asks whether that generator is working. So
+	// ask first. A donor whose browser hands out a broken generator gets an
+	// error they can act on instead of a wallet somebody else can also open.
+	assertRandomSourceHealthy();
 	const phrase = generateMnemonic(wordlist, 128);
 	return fromMnemonic(phrase, { revealPhrase: true });
 }
