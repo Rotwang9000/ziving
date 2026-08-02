@@ -88,12 +88,14 @@ pipeline {
 					# exactly this reason — so a rebuild that changes tracked
 					# files means the commit shipped stale artefacts.
 					npm run build:wallet
-					if ! git diff --exit-code --stat -- site/lib wallet/vendor; then
+					# site/lib only: wallet/vendor is a gitignored staging copy
+					# of WINBIT32's glue JS, which ends up inside the bundle.
+					if ! git diff --exit-code --stat -- site/lib; then
 						echo ""
 						echo "DRIFT: rebuilding changed committed artefacts."
 						echo "The site was committed without re-running the wallet build,"
 						echo "so it ships a signer older than WINBIT32's."
-						echo "Fix: npm run build:wallet && git add site/lib wallet/vendor"
+						echo "Fix: npm run build:wallet && git add site/lib"
 						exit 1
 					fi
 					echo "Committed artefacts match a fresh build."

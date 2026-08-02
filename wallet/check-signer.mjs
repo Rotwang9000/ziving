@@ -67,11 +67,6 @@ const pairs = [
 		dst: resolve(siteLib, 'webzjs_keys_and_send_bg.wasm'),
 	},
 	{
-		label: 'signer glue js',
-		src: resolve(winbit, 'src/components/toolbox/zcash-extensions/utils/webzjs_keys_and_send_fixed.js'),
-		dst: resolve(here, 'vendor/webzjs_keys_and_send_fixed.js'),
-	},
-	{
 		label: 'orchard-frost wasm',
 		src: resolve(winbit, 'public/orchard-frost/orchard_frost_wasm_bg.wasm'),
 		dst: resolve(siteLib, 'orchard-frost/orchard_frost_wasm_bg.wasm'),
@@ -100,6 +95,21 @@ if (!existsSync(manifestPath)) {
 	lines.push('\nmanifest\n  DRIFT signer-manifest.json               absent');
 } else {
 	const m = JSON.parse(readFileSync(manifestPath, 'utf8'));
+
+	// The signer's JS glue is bundled into zcash-wallet.js rather than
+	// shipped beside it, and wallet/vendor/ is gitignored — so in a fresh
+	// checkout (CI) there is no file to hash. The manifest is the committed
+	// record of which glue the bundle was built from, which is the thing
+	// that actually needs to be current. Checking the working copy instead
+	// failed the first CI run for a file that is not supposed to exist there.
+	lines.push('\nWINBIT32 → committed bundle (via manifest)');
+	compare(
+		'signer glue js',
+		hashFile(resolve(winbit, 'src/components/toolbox/zcash-extensions/utils/webzjs_keys_and_send_fixed.js')),
+		m.glue?.sha256 ?? null,
+		'run `npm run build:wallet` and commit the result',
+	);
+
 	lines.push('\nmanifest vs files on disk');
 	compare('manifest signer sha256', m.signer?.sha256 ?? null, hashFile(resolve(siteLib, 'webzjs_keys_and_send_bg.wasm')),
 		'the manifest was written by a different build than the wasm beside it');
