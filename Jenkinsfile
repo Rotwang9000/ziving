@@ -90,7 +90,14 @@ pipeline {
 					npm run build:wallet
 					# site/lib only: wallet/vendor is a gitignored staging copy
 					# of WINBIT32's glue JS, which ends up inside the bundle.
-					if ! git diff --exit-code --stat -- site/lib; then
+					#
+					# The sourcemap is excluded because it is the one output
+					# that legitimately differs between checkouts: it records
+					# paths to wallet-kit sources that live OUTSIDE this repo,
+					# so the relative path depends on where the repo sits. A
+					# Jenkins workspace and a dev machine will never agree, and
+					# a gate that always fails is a gate everyone disables.
+					if ! git diff --exit-code --stat -- site/lib ':!site/lib/*.map'; then
 						echo ""
 						echo "DRIFT: rebuilding changed committed artefacts."
 						echo "The site was committed without re-running the wallet build,"
