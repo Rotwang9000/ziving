@@ -1,0 +1,24 @@
+{
+	"source": "WINBIT32 (built from the working tree, not a release)",
+	"signer": {
+		"file": "webzjs_keys_and_send_bg.wasm",
+		"sha256": "c178a140c7b17177fb311fca55a492fd8e2e0b5192c9e6c9859e8bf415bc4cde",
+		"bytes": 2634995,
+		"cacheToken": "c178a140c7b1",
+		"winbit32Commit": "89a81d3 2026-07-29 fix(zcash): ship the signer WASM built from the corrected source"
+	},
+	"glue": {
+		"file": "wallet/vendor/webzjs_keys_and_send_fixed.js",
+		"sha256": "b0b0a2418aa62508d1070369e28e98dd87220f2d675375c1b98a6fb7b9ce4390",
+		"winbit32Commit": "fa88ab4 2026-07-29 build(zcash): install the Ironwood-capable signer WASM"
+	},
+	"orchardFrost": {
+		"file": "orchard-frost/orchard_frost_wasm_bg.wasm",
+		"sha256": "33ebaa84998d5d248b968c6cb833732ef16da8358e142c7ff15dd164c7151be0",
+		"winbit32Commit": "untracked in WINBIT32 (built by ci/build-frost-wasm.sh)"
+	},
+	"bundle": {
+		"file": "zcash-wallet.js",
+		"sha256": "f433a0d2943fb34c52e4f4933235a1d6c9494c35ad269b822f4ca89a86a47777"
+	}
+}

@@ -98,8 +98,27 @@ Scanner / PCZT / cosign relay are same-origin `/api/*` (nginx → orchard-scanne
 
 ```bash
 npm install
-npm run build:wallet   # → site/lib/zcash-wallet.js + WASM assets
+npm run build:wallet   # → site/lib/zcash-wallet.js + WASM assets + signer-manifest.json
+npm run check:signer   # are the committed artefacts WINBIT32's current ones?
+npm run check:signer:all   # ... and did they reach the docroot and ziving.org?
 ```
+
+### Keeping the signer current
+
+`site/lib/webzjs_keys_and_send_bg.wasm` is a **copy** of WINBIT32's Zcash
+signer, and it is consensus-critical: a stale one builds transactions against
+the wrong branch id and the network rejects them, which a donor experiences as
+a send that fails for no stated reason. Four things keep the copies honest:
+
+- the signer's `?v=` cache token **is its own sha256** (injected by
+  `wallet/build.mjs`), so a rebuilt signer can never arrive at a URL browsers
+  already have cached — it used to be a hand-written `?v=nu63`;
+- `site/lib/signer-manifest.json` records the hashes and the WINBIT32 commit
+  each artefact came from, and carries no timestamp so rebuilds are diff-free;
+- `npm run check:signer` compares WINBIT32 → repo → docroot → **what
+  ziving.org actually serves**, and exits non-zero on any mismatch;
+- CI runs that check, rebuilds, and fails if rebuilding changes a committed
+  file — plus a nightly run, because signer drift arrives without a commit.
 
 Native multi-share `.vult` vaults still need Winbit32; export a `.wult`, locket photo, or seed phrase instead.
 

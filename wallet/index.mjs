@@ -39,7 +39,16 @@ import {
 import { extractLocketShareText } from './locket-chunk.mjs';
 
 const NETWORK = 'main';
-const WASM_URL = new URL('./webzjs_keys_and_send_bg.wasm?v=nu63', import.meta.url).href;
+
+/**
+ * Cache-busting token for the signer, injected by wallet/build.mjs as the
+ * first 12 hex of the WASM's own sha256. It was a hand-written `?v=nu63`
+ * until 2 Aug 2026, which meant a rebuilt signer kept the old URL and
+ * donors kept the old signer for up to a day (nginx serves .wasm with
+ * max-age=86400). 'dev' is only reached if this file is loaded unbundled.
+ */
+const SIGNER_TOKEN = typeof __SIGNER_TOKEN__ === 'string' ? __SIGNER_TOKEN__ : 'dev';
+const WASM_URL = new URL(`./webzjs_keys_and_send_bg.wasm?v=${SIGNER_TOKEN}`, import.meta.url).href;
 const ORCHARD_WASM_BASE = new URL('./orchard-frost', import.meta.url).href;
 
 /** Same-origin scanner/PCZT/relay (nginx proxies /api → orchard-scanner). */

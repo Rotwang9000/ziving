@@ -4,6 +4,8 @@
 	"type": "module",
 	"scripts": {
 		"build:wallet": "node wallet/build.mjs",
+		"check:signer": "node wallet/check-signer.mjs",
+		"check:signer:all": "node wallet/check-signer.mjs --all",
 		"predeploy": "npm run build:wallet"
 	},
 	"devDependencies": {
